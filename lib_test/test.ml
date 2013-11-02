@@ -16,6 +16,21 @@
 
 open OUnit
 open Lwt
+open Fat
+
+let test_parse_boot_sector () =
+  let open Boot_sector in
+  let bytes = Bitstring.bitstring_of_file "lib_test/bootsector.dat" in
+  let x = unmarshal bytes in
+  assert_equal "mkdosfs\000" x.oem_name;
+  assert_equal ~printer:string_of_int 512 x.bytes_per_sector;
+  assert_equal ~printer:string_of_int 4 x.sectors_per_cluster;
+  assert_equal ~printer:string_of_int 4 x.reserved_sectors;
+  assert_equal ~printer:string_of_int 2 x.number_of_fats;
+  assert_equal ~printer:string_of_int 512 x.number_of_root_dir_entries;
+  assert_equal ~printer:Int32.to_string 30720l x.total_sectors;
+  assert_equal ~printer:string_of_int 32 x.sectors_per_fat;
+  assert_equal ~printer:Int32.to_string 0l x.hidden_preceeding_sectors
 
 let _ =
   let verbose = ref false in
@@ -24,6 +39,8 @@ let _ =
   ] (fun x -> Printf.fprintf stderr "Ignoring argument: %s" x)
     "Test FAT filesystem";
 
-  let suite = "fat" >::: [] in
+  let suite = "fat" >::: [
+    "test_parse_boot_sector" >:: test_parse_boot_sector;
+  ] in
   run_test_tt ~verbose:!verbose suite
 

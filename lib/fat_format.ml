@@ -1,5 +1,5 @@
 (*
- * Copyright (C) 2013 Citrix Systems Inc
+ * Copyright (C) 2011-2013 Citrix Systems Inc
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -14,4 +14,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-
+type t = FAT12 | FAT16 | FAT32
+let to_string = function
+  | FAT12 -> "FAT12"
+  | FAT16 -> "FAT16"
+  | FAT32 -> "FAT32"

@@ -1,8 +1,8 @@
 # OASIS_START
-# DO NOT EDIT (digest: e19e7db1332fce8154eb9a8fe99974fe)
+# DO NOT EDIT (digest: a9bfc55eda2da2c05c05c815ad29ce1c)
 version = "0.5.0"
 description = "FAT filesystem manipulation"
-requires = "cstruct re"
+requires = "cstruct re bitstring"
 archive(byte) = "fat.cma"
 archive(byte, plugin) = "fat.cma"
 archive(native) = "fat.cmxa"

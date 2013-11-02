@@ -8,11 +8,12 @@ Plugins:     META (0.3)
 BuildTools:  ocamlbuild
 
 Library fat
+  Pack:               true
   CompiledObject:     best
   Path:               lib
   Findlibname:        fat-format
-  Modules:            Fat
-  BuildDepends:       cstruct, re
+  Modules:            Fat_format, Boot_sector
+  BuildDepends:       cstruct, re, bitstring
 
 Library fat_lwt
   CompiledObject:     best
