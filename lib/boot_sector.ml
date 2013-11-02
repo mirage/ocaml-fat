@@ -86,10 +86,7 @@ let unmarshal (buf: Cstruct.t) : (t, string) result =
   let number_of_fats = get_t_number_of_fats buf in
   let number_of_root_dir_entries = get_t_number_of_root_dir_entries buf in
   let total_sectors_small = get_t_total_sectors_small buf in
-  let media_descriptor = get_t_media_descriptor buf in
   let sectors_per_fat = get_t_sectors_per_fat buf in
-  let sectors_per_track = get_t_sectors_per_track buf in
-  let heads = get_t_heads buf in
   let hidden_preceeding_sectors = get_t_hidden_preceeding_sectors buf in
   let total_sectors_large = get_t_total_sectors_large buf in
   return {
@@ -99,27 +96,6 @@ let unmarshal (buf: Cstruct.t) : (t, string) result =
     sectors_per_fat; hidden_preceeding_sectors;
   }
 
-(*
-let unmarshal bits =
-  bitmatch bits with
-  | { _: 24: string; (* JMP instruction *)
-      oem_name: (8 * 8): string;
-      bytes_per_sector: (2 * 8): littleendian;
-      sectors_per_cluster: (1 * 8): littleendian;
-      reserved_sectors: (2 * 8): littleendian;
-      number_of_fats: (1 * 8): littleendian;
-      number_of_root_dir_entries: (2 * 8): littleendian;
-      total_sectors_small: (2 * 8): littleendian;
-      media_descriptor: (1 * 8): littleendian;
-      sectors_per_fat: (2 * 8): littleendian;
-      sectors_per_track: (2 * 8): littleendian;
-      heads: (2 * 8): littleendian;
-      hidden_preceeding_sectors: (4 * 8): littleendian;
-      total_sectors_large: (4 * 8): littleendian;
-      0xaa55: 16: littleendian, offset(0x1fe * 8)
-    } -> 
-  | { _ } -> failwith "Failed to read a boot sector"
-*)
 let debug_print x =
   Printf.printf "OEM: [%s]\n" x.oem_name;
   Printf.printf "bytes_per_sector: %d\n" x.bytes_per_sector;
