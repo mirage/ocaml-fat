@@ -1,6 +1,9 @@
 # OASIS_START
-# DO NOT EDIT (digest: 3b92860d4dbee3ae82e5b636b18b1452)
+# DO NOT EDIT (digest: 841f201d9a76b4479d6df681439e93b3)
 Fat_format
 Boot_sector
+Entry
+Update
+SectorMap
 Result
 # OASIS_STOP
