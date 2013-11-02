@@ -17,20 +17,33 @@
 open OUnit
 open Lwt
 open Fat
+open Fat_lwt
+
+let read_sector filename =
+  Lwt_unix.openfile filename [ Lwt_unix.O_RDONLY ] 0o0 >>= fun fd ->
+  let buf = Cstruct.create 512 in
+  really_read fd buf >>= fun () ->
+  Lwt_unix.close fd >>= fun () ->
+  return buf
 
 let test_parse_boot_sector () =
-  let open Boot_sector in
-  let bytes = Bitstring.bitstring_of_file "lib_test/bootsector.dat" in
-  let x = unmarshal bytes in
-  assert_equal "mkdosfs\000" x.oem_name;
-  assert_equal ~printer:string_of_int 512 x.bytes_per_sector;
-  assert_equal ~printer:string_of_int 4 x.sectors_per_cluster;
-  assert_equal ~printer:string_of_int 4 x.reserved_sectors;
-  assert_equal ~printer:string_of_int 2 x.number_of_fats;
-  assert_equal ~printer:string_of_int 512 x.number_of_root_dir_entries;
-  assert_equal ~printer:Int32.to_string 30720l x.total_sectors;
-  assert_equal ~printer:string_of_int 32 x.sectors_per_fat;
-  assert_equal ~printer:Int32.to_string 0l x.hidden_preceeding_sectors
+  let t =
+    let open Boot_sector in
+    read_sector "lib_test/bootsector.dat" >>= fun bytes ->
+    let x = match unmarshal bytes with
+    | Result.Error x -> failwith x
+    | Result.Ok x -> x in
+    assert_equal "mkdosfs\000" x.oem_name;
+    assert_equal ~printer:string_of_int 512 x.bytes_per_sector;
+    assert_equal ~printer:string_of_int 4 x.sectors_per_cluster;
+    assert_equal ~printer:string_of_int 4 x.reserved_sectors;
+    assert_equal ~printer:string_of_int 2 x.number_of_fats;
+    assert_equal ~printer:string_of_int 512 x.number_of_root_dir_entries;
+    assert_equal ~printer:Int32.to_string 30720l x.total_sectors;
+    assert_equal ~printer:string_of_int 32 x.sectors_per_fat;
+    assert_equal ~printer:Int32.to_string 0l x.hidden_preceeding_sectors;
+    return () in
+  Lwt_main.run t
 
 let _ =
   let verbose = ref false in

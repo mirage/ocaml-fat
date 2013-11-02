@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 5df1b6aa57d2aad1fde3a12ff7a1a80f)
+# DO NOT EDIT (digest: 1bf17066f447f371d1ed1cdf68064245)
 # Ignore VCS directories, you can use the same kind of rule outside 
 # OASIS_START/STOP if you want to exclude directories that contains 
 # useless stuff for the build process
@@ -17,6 +17,7 @@
 "lib/fat.cmxs": use_fat
 "lib/fat_format.cmx": for-pack(Fat)
 "lib/boot_sector.cmx": for-pack(Fat)
+"lib/result.cmx": for-pack(Fat)
 <lib/*.ml{,i}>: pkg_cstruct
 <lib/*.ml{,i}>: pkg_re
 <lib/*.ml{,i}>: pkg_bitstring
@@ -46,4 +47,4 @@
 <lib_test/*.ml{,i}>: pkg_bitstring
 <lib_test/test.{native,byte}>: custom
 # OASIS_STOP
-<lib/boot_sector.ml>: syntax_camlp4o, pkg_bitstring.syntax
+<lib/boot_sector.ml>: syntax_camlp4o, pkg_cstruct.syntax

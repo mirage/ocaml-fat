@@ -14,6 +14,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
+open Result
+
 type t = {
   oem_name: string;
   bytes_per_sector: int;
@@ -26,7 +28,7 @@ type t = {
   hidden_preceeding_sectors: int32;
 }
 
-val unmarshal: Bitstring.t -> t
+val unmarshal: Cstruct.t -> (t, string) result
 
 val debug_print: t -> unit
 

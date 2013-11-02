@@ -14,6 +14,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
+open Result
+
 type t = {
   oem_name: string;
   bytes_per_sector: int;
@@ -26,6 +28,58 @@ type t = {
   hidden_preceeding_sectors: int32;
 }
 
+cstruct t {
+  uint8_t jump_instruction[3];
+  uint8_t oem_name[8];
+  uint16_t bytes_per_sector;
+  uint8_t sectors_per_cluster;
+  uint16_t reserved_sectors;
+  uint8_t number_of_fats;
+  uint16_t number_of_root_dir_entries;
+  uint16_t total_sectors_small;
+  uint8_t media_descriptor;
+  uint16_t sectors_per_fat;
+  uint16_t sectors_per_track;
+  uint16_t heads;
+  uint32_t hidden_preceeding_sectors;
+  uint32_t total_sectors_large;
+  uint8_t boot_code[474];
+  uint16_t signature
+} as little_endian
+
+let sizeof = sizeof_t
+
+let _ = assert(sizeof = 512)
+
+let unmarshal (buf: Cstruct.t) : (t, string) result =
+  ( if Cstruct.len buf < sizeof
+    then fail (Printf.sprintf "boot sector too small: %d < %d" (Cstruct.len buf) sizeof)
+    else return () ) >>= fun () ->
+  let signature = get_t_signature buf in
+  ( if signature <> 0xaa55
+    then fail (Printf.sprintf "boot sector signature invalid: %04x <> %04x" signature 0xaa55)
+    else return () ) >>= fun () ->
+  let oem_name = Cstruct.to_string (get_t_oem_name buf) in
+  let bytes_per_sector = get_t_bytes_per_sector buf in
+  let sectors_per_cluster = get_t_sectors_per_cluster buf in
+  let reserved_sectors = get_t_reserved_sectors buf in
+  let number_of_fats = get_t_number_of_fats buf in
+  let number_of_root_dir_entries = get_t_number_of_root_dir_entries buf in
+  let total_sectors_small = get_t_total_sectors_small buf in
+  let media_descriptor = get_t_media_descriptor buf in
+  let sectors_per_fat = get_t_sectors_per_fat buf in
+  let sectors_per_track = get_t_sectors_per_track buf in
+  let heads = get_t_heads buf in
+  let hidden_preceeding_sectors = get_t_hidden_preceeding_sectors buf in
+  let total_sectors_large = get_t_total_sectors_large buf in
+  return {
+    oem_name; bytes_per_sector; sectors_per_cluster;
+    reserved_sectors; number_of_fats; number_of_root_dir_entries;
+    total_sectors = max (Int32.of_int total_sectors_small) total_sectors_large;
+    sectors_per_fat; hidden_preceeding_sectors;
+  }
+
+(*
 let unmarshal bits =
   bitmatch bits with
   | { _: 24: string; (* JMP instruction *)
@@ -44,19 +98,8 @@ let unmarshal bits =
       total_sectors_large: (4 * 8): littleendian;
       0xaa55: 16: littleendian, offset(0x1fe * 8)
     } -> 
-    {
-      oem_name = oem_name;
-      bytes_per_sector = bytes_per_sector;
-      sectors_per_cluster = sectors_per_cluster;
-      reserved_sectors = reserved_sectors;
-      number_of_fats = number_of_fats;
-      number_of_root_dir_entries = number_of_root_dir_entries;
-      total_sectors = max (Int32.of_int total_sectors_small) total_sectors_large;
-      sectors_per_fat = sectors_per_fat;
-      hidden_preceeding_sectors = hidden_preceeding_sectors;
-    }
   | { _ } -> failwith "Failed to read a boot sector"
-
+*)
 let debug_print x =
   Printf.printf "OEM: [%s]\n" x.oem_name;
   Printf.printf "bytes_per_sector: %d\n" x.bytes_per_sector;

@@ -1,5 +1,5 @@
 (*
- * Copyright (C) 2013 Citrix Systems Inc
+ * Copyright (C) 2011-2013 Citrix Systems Inc
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -13,7 +13,13 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
+type ('a, 'b) result =
+  | Ok of 'a
+  | Error of 'b
 
-val really_read: Lwt_unix.file_descr -> Cstruct.t -> unit Lwt.t
-val really_write: Lwt_unix.file_descr -> Cstruct.t -> unit Lwt.t
+let ( >>= ) x f = match x with
+  | Error y -> Error y
+  | Ok z -> f z
 
+let return x = Ok x
+let fail y = Error y
