@@ -26,6 +26,18 @@ let read_sector filename =
   Lwt_unix.close fd >>= fun () ->
   return buf
 
+let checksum_test () =
+  let open Name in
+  let checksum_tests = [
+    make "MAKEFILE", 193;
+    make "FAT.ML", 223;
+  ] in
+  List.iter (fun (d, expected) ->
+    let d = snd d.dos in
+    let checksum = compute_checksum d in
+    assert_equal ~printer:string_of_int expected checksum
+  ) checksum_tests
+
 let test_parse_boot_sector () =
   let t =
     let open Boot_sector in
@@ -67,6 +79,7 @@ let _ =
 
   let suite = "fat" >::: [
     "test_parse_boot_sector" >:: test_parse_boot_sector;
+    "checksum" >:: checksum_test;
   ] in
   run_test_tt ~verbose:!verbose suite
 

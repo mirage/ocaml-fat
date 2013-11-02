@@ -216,17 +216,6 @@ let make ?(read_only=false) ?(system=false) ?(subdir=false) filename =
     lfns = List.map (fun l -> 0, l) lfns
   }
 
-  let _ =
-    let checksum_tests = [
-      make "MAKEFILE", 193;
-      make "FAT.ML", 223;
-    ] in
-    List.iter (fun (d, expected) ->
-      let d = snd d.dos in
-      let checksum = compute_checksum d in
-      if checksum <> expected then failwith (Printf.sprintf "checksum_tests: %s.%s expected=%d actual=%d" d.filename d.ext expected checksum)
-    ) checksum_tests
-
 let to_string x =
   let trim_utf16 x =
     let chars = ref (String.length x / 2) in
