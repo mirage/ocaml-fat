@@ -23,6 +23,14 @@ Library fat_lwt
   Modules:            Fat_lwt
   BuildDepends:       lwt, lwt.unix, cstruct.lwt
 
+Executable shell
+  CompiledObject:     best
+  Path:               shell
+  MainIs:             main.ml
+  Custom:             true
+  Install:            false
+  BuildDepends:       fat-format
+
 Executable test
   CompiledObject:     best
   Path:               lib_test
