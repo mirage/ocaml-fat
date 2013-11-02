@@ -28,6 +28,10 @@ type t = {
   hidden_preceeding_sectors: int32;
 }
 
+val sizeof: int
+
+val marshal: Cstruct.t -> t -> unit
+
 val unmarshal: Cstruct.t -> (t, string) result
 
 val debug_print: t -> unit

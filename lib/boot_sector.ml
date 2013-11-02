@@ -51,6 +51,26 @@ let sizeof = sizeof_t
 
 let _ = assert(sizeof = 512)
 
+let marshal (buf: Cstruct.t) t =
+  for i = 0 to Cstruct.len buf - 1 do
+    Cstruct.set_uint8 buf i 0
+  done;
+  set_t_oem_name t.oem_name 0 buf;
+  set_t_bytes_per_sector buf t.bytes_per_sector;
+  set_t_sectors_per_cluster buf t.sectors_per_cluster;
+  set_t_reserved_sectors buf t.reserved_sectors;
+  set_t_number_of_fats buf t.number_of_fats;
+  set_t_number_of_root_dir_entries buf t.number_of_root_dir_entries;
+  set_t_total_sectors_small buf 0; (* means use total_sectors_large *)
+  set_t_media_descriptor buf 0xf8; (* fixed disk *)
+  set_t_sectors_per_fat buf t.sectors_per_fat;
+  set_t_sectors_per_track buf 0; (* not used *)
+  set_t_heads buf 0; (* not used *)
+  set_t_hidden_preceeding_sectors buf t.hidden_preceeding_sectors;
+  set_t_total_sectors_large buf t.total_sectors;
+  (* no boot code yet *)
+  set_t_signature buf 0xaa55
+
 let unmarshal (buf: Cstruct.t) : (t, string) result =
   ( if Cstruct.len buf < sizeof
     then fail (Printf.sprintf "boot sector too small: %d < %d" (Cstruct.len buf) sizeof)
