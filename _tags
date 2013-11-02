@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 97cabd6ba7d8b3cb0c7541a627c0e0a1)
+# DO NOT EDIT (digest: 56412584ed0d8659bb53d53d33e24c81)
 # Ignore VCS directories, you can use the same kind of rule outside 
 # OASIS_START/STOP if you want to exclude directories that contains 
 # useless stuff for the build process
@@ -19,6 +19,7 @@
 "lib/boot_sector.cmx": for-pack(Fat)
 "lib/entry.cmx": for-pack(Fat)
 "lib/name.cmx": for-pack(Fat)
+"lib/path.cmx": for-pack(Fat)
 "lib/update.cmx": for-pack(Fat)
 "lib/sectorMap.cmx": for-pack(Fat)
 "lib/result.cmx": for-pack(Fat)
