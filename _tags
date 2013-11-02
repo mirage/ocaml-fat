@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 08336773a5166c5b3cc346ced2bec5a1)
+# DO NOT EDIT (digest: 97cabd6ba7d8b3cb0c7541a627c0e0a1)
 # Ignore VCS directories, you can use the same kind of rule outside 
 # OASIS_START/STOP if you want to exclude directories that contains 
 # useless stuff for the build process
@@ -18,11 +18,13 @@
 "lib/fat_format.cmx": for-pack(Fat)
 "lib/boot_sector.cmx": for-pack(Fat)
 "lib/entry.cmx": for-pack(Fat)
+"lib/name.cmx": for-pack(Fat)
 "lib/update.cmx": for-pack(Fat)
 "lib/sectorMap.cmx": for-pack(Fat)
 "lib/result.cmx": for-pack(Fat)
 <lib/*.ml{,i}>: pkg_cstruct
 <lib/*.ml{,i}>: pkg_re
+<lib/*.ml{,i}>: pkg_re.str
 <lib/*.ml{,i}>: pkg_bitstring
 # Library fat_lwt
 "lib/fat_lwt.cmxs": use_fat_lwt
@@ -38,6 +40,7 @@
 <lib_test/test.{native,byte}>: pkg_oUnit
 <lib_test/test.{native,byte}>: pkg_cstruct.lwt
 <lib_test/test.{native,byte}>: pkg_re
+<lib_test/test.{native,byte}>: pkg_re.str
 <lib_test/test.{native,byte}>: pkg_bitstring
 <lib_test/*.ml{,i}>: use_fat
 <lib_test/*.ml{,i}>: use_fat_lwt
@@ -47,8 +50,10 @@
 <lib_test/*.ml{,i}>: pkg_oUnit
 <lib_test/*.ml{,i}>: pkg_cstruct.lwt
 <lib_test/*.ml{,i}>: pkg_re
+<lib_test/*.ml{,i}>: pkg_re.str
 <lib_test/*.ml{,i}>: pkg_bitstring
 <lib_test/test.{native,byte}>: custom
 # OASIS_STOP
 <lib/boot_sector.ml>: syntax_camlp4o, pkg_cstruct.syntax
 <lib/entry.ml>: syntax_camlp4o, pkg_bitstring.syntax
+<lib/name.ml>: syntax_camlp4o, pkg_bitstring.syntax
