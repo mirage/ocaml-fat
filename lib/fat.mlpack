@@ -1,10 +1,11 @@
 # OASIS_START
-# DO NOT EDIT (digest: a71e929214de78cc433228ad70fe9700)
+# DO NOT EDIT (digest: 49a80084774514477615404566bda15e)
 Fat_format
 Boot_sector
 Entry
 Name
 Path
+Fs
 Update
 SectorMap
 Result
