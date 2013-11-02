@@ -1,0 +1,22 @@
+# OASIS_START
+# DO NOT EDIT (digest: e19e7db1332fce8154eb9a8fe99974fe)
+version = "0.5.0"
+description = "FAT filesystem manipulation"
+requires = "cstruct re"
+archive(byte) = "fat.cma"
+archive(byte, plugin) = "fat.cma"
+archive(native) = "fat.cmxa"
+archive(native, plugin) = "fat.cmxs"
+exists_if = "fat.cma"
+package "lwt" (
+ version = "0.5.0"
+ description = "FAT filesystem manipulation"
+ requires = "lwt lwt.unix cstruct.lwt"
+ archive(byte) = "fat_lwt.cma"
+ archive(byte, plugin) = "fat_lwt.cma"
+ archive(native) = "fat_lwt.cmxa"
+ archive(native, plugin) = "fat_lwt.cmxs"
+ exists_if = "fat_lwt.cma"
+)
+# OASIS_STOP
+

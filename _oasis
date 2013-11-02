@@ -1,0 +1,35 @@
+OASISFormat: 0.3
+Name:        fat-format
+Version:     0.5.0
+Synopsis:    FAT filesystem manipulation
+Authors:     David Scott
+License:     ISC
+Plugins:     META (0.3)
+BuildTools:  ocamlbuild
+
+Library fat
+  CompiledObject:     best
+  Path:               lib
+  Findlibname:        fat-format
+  Modules:            Fat
+  BuildDepends:       cstruct, re
+
+Library fat_lwt
+  CompiledObject:     best
+  Path:               lib
+  Findlibname:        lwt
+  Findlibparent:      fat
+  Modules:            Fat_lwt
+  BuildDepends:       lwt, lwt.unix, cstruct.lwt
+
+Executable test
+  CompiledObject:     best
+  Path:               lib_test
+  MainIs:             test.ml
+  Custom:             true
+  Install:            false
+  BuildDepends:       lwt, lwt.unix, fat-format, fat-format.lwt, cstruct, oUnit
+
+Test test
+  Command:            ./test.native
+  Run:                true
