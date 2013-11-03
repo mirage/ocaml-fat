@@ -14,72 +14,12 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-type error =
-  | Not_a_directory of Path.t
-  | Is_a_directory of Path.t
-  | Directory_not_empty of Path.t
-  | No_directory_entry of Path.t * string
-  | File_already_exists of string
-  | No_space
-
-let string_of_error = function
-  | Not_a_directory x ->
-    Printf.sprintf "Not_a_directory %s" (Path.to_string x)
-  | Is_a_directory x->
-    Printf.sprintf "Is_a_directory %s" (Path.to_string x)
-  | Directory_not_empty x ->
-    Printf.sprintf "Directory_not_empty %s" (Path.to_string x)
-  | No_directory_entry (x, y) ->
-    Printf.sprintf "No_directory_entry %s %s" (Path.to_string x) y
-  | File_already_exists x ->
-    Printf.sprintf "File_already_exists %s" x
-  | No_space ->
-    Printf.sprintf "No_space"
-
 open Result
+open S
+
 let iter f xs = List.fold_left (fun r x -> match r with Error _ -> r | _ -> f x) (Ok ()) xs
 
-module Stat = struct
-  type t = 
-    | File of Name.r
-    | Dir of Name.r * (Name.r list) (** the directory itself and its immediate children *)
-end
-
-module type FS = sig
-  type fs
-
-  val make: int64 -> fs
-  (** [make size] creates a filesystem of size [size] *)
-
-  val openfile: unit -> fs
-
-  type file
-
-  val create: fs -> Path.t -> (unit, error) result
-
-  val mkdir: fs -> Path.t -> (unit, error) result
-
-  (** [destroy fs path] removes a [path] on filesystem [fs] *)
-  val destroy: fs -> Path.t -> (unit, error) result
-
-  (** [file_of_path fs path] returns a [file] corresponding to [path] on
-      filesystem [fs] *)
-  val file_of_path: fs -> Path.t -> file
-
-  (** [stat fs f] returns information about file [f] on filesystem [fs] *)
-  val stat: fs -> Path.t -> (Stat.t, error) result
-
-  (** [write fs f offset data] writes [data] at [offset] in file [f] on
-      filesystem [fs] *)
-  val write: fs -> file -> int -> Cstruct.t -> (unit, error) result
-
-  (** [read fs f offset length] reads up to [length] bytes from file [f] on
-      filesystem [fs]. If less data is returned than requested, this indicates
-      end-of-file. *)
-  val read: fs -> file -> int -> int -> (Cstruct.t list, error) result
-end
-
-module Make = functor(B: S.IO) -> struct
+module Make = functor(B: IO) -> struct
   type fs = {
     boot: Boot_sector.t;
     format: Fat_format.t; (** FAT12, 16 or 32 *)
@@ -163,7 +103,7 @@ module Make = functor(B: S.IO) -> struct
 
   (** [find x path] returns a [find_result] corresponding to the object
       stored at [path] *)
-  let find x path : (find, error) result =
+  let find x path : (find, Error.t) result =
     let readdir = function
       | Dir ds -> ds
       | File d -> Name.list (read_whole_file x d) in
@@ -178,11 +118,11 @@ module Make = functor(B: S.IO) -> struct
       let entries = readdir current in
       begin match Name.find p entries, ps with
       | Some { Name.dos = _, { Name.subdir = false } }, _ :: _ ->
-        Error (Not_a_directory (Path.of_string_list (List.rev (p :: sofar))))
+        Error (Error.Not_a_directory (Path.of_string_list (List.rev (p :: sofar))))
       | Some d, _ ->
         inner (p::sofar) (File d) ps
       | None, _ ->
-        Error(No_directory_entry (Path.of_string_list (List.rev sofar), p))
+        Error(Error.No_directory_entry (Path.of_string_list (List.rev sofar), p))
       end in
     inner [] (Dir (Name.list x.root)) (Path.to_string_list path)
 
@@ -211,7 +151,7 @@ module Make = functor(B: S.IO) -> struct
 
   (** [write_to_location x path location update] applies [update] to the data given by
       [location]. This will also allocate any additional clusters necessary. *)
-  let rec write_to_location x path location update : (unit, error) result =
+  let rec write_to_location x path location update : (unit, Error.t) result =
     let bps = x.boot.Boot_sector.bytes_per_sector in
     let spc = x.boot.Boot_sector.sectors_per_cluster in
     let updates = Update.split update bps in
@@ -227,7 +167,7 @@ module Make = functor(B: S.IO) -> struct
       Int64.(to_int(div (add bytes_needed (sub bpc 1L)) bpc)) in
     match location, bytes_needed > 0L with
       | Rootdir, true ->
-	Error No_space
+	Error Error.No_space
       | (Rootdir | Chain _), false ->
 	let writes = Update.map updates sectors bps in
 	List.iter (write_update x) writes;
@@ -244,7 +184,7 @@ module Make = functor(B: S.IO) -> struct
 	List.iter (write_update x) fat_writes;
 	update_directory_containing x path
 	  (fun bits ds ->
-	    let enoent = Error(No_directory_entry (Path.directory path, Path.filename path)) in
+	    let enoent = Error(Error.No_directory_entry (Path.directory path, Path.filename path)) in
 	    let filename = Path.filename path in
 	    match Name.find filename ds with
 	      | None ->
@@ -260,7 +200,7 @@ module Make = functor(B: S.IO) -> struct
     let parent_path = Path.directory path in
     match find x parent_path with
       | Error x -> Error x
-      | Ok (File _) -> Error(Not_a_directory parent_path)
+      | Ok (File _) -> Error(Error.Not_a_directory parent_path)
       | Ok (Dir ds) ->
 	let sectors, location = match (chain_of_file x parent_path) with
 	  | None -> Boot_sector.sectors_of_root_dir x.boot, Rootdir
@@ -293,20 +233,20 @@ module Make = functor(B: S.IO) -> struct
     update_directory_containing x path
       (fun contents ds ->
 	if Name.find filename ds <> None
-	then Error (File_already_exists filename)
+	then Error (Error.File_already_exists filename)
 	else Ok (Name.add contents dir_entry)
       )
 
   (** [create x path] create a zero-length file at [path] *)
-  let create x path : (unit, error) result =
+  let create x path : (unit, Error.t) result =
     create_common x path (Name.make (Path.filename path))
 
   (** [mkdir x path] create an empty directory at [path] *)
-  let mkdir x path : (unit, error) result =
+  let mkdir x path : (unit, Error.t) result =
     create_common x path (Name.make ~subdir:true (Path.filename path))
 
   (** [destroy x path] deletes the entry at [path] *)
-  let destroy x path : (unit, error) result =
+  let destroy x path : (unit, Error.t) result =
     let filename = Path.filename path in
     let do_destroy () =
       update_directory_containing x path
@@ -314,14 +254,14 @@ module Make = functor(B: S.IO) -> struct
 	(* XXX check for nonempty *)
 	(* XXX delete chain *)
 	  if Name.find filename ds = None
-	  then Error (No_directory_entry(Path.directory path, filename))
+	  then Error (Error.No_directory_entry(Path.directory path, filename))
 	  else Ok (Name.remove contents filename)
 	) in
     match find x path with
       | Error x -> Error x
       | Ok (File _) -> do_destroy ()
       | Ok (Dir []) -> do_destroy ()
-      | Ok (Dir (_::_)) -> Error(Directory_not_empty(path))
+      | Ok (Dir (_::_)) -> Error(Error.Directory_not_empty(path))
 
   let stat x path =
     let entry_of_file f = f in
@@ -380,7 +320,7 @@ module Make = functor(B: S.IO) -> struct
       
   let read x path the_start length =
     match find x path with
-      | Ok (Dir _) -> Error (Is_a_directory path)
+      | Ok (Dir _) -> Error (Error.Is_a_directory path)
       | Ok (File f) -> Ok (read_file x f the_start length)
       | Error x -> Error x
 

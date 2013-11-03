@@ -1,6 +1,7 @@
 (* This is a toplevel-like test program *)
 
 open Fat
+open S
 
 let filename = ref ""
 let sector_size = 512
@@ -54,7 +55,7 @@ module UnixBlock = struct
       )
 end
 
-module Test = (Fs.Make(UnixBlock) : Fs.FS)
+module Test = (Fs.Make(UnixBlock) : S.FS)
 
 let () =
   let usage () =
@@ -78,12 +79,7 @@ let () =
   let open Fs in
   let open Result in
   let handle_error f = function
-    | Error (Not_a_directory path) -> Printf.printf "Not a directory (%s).\n%!" (Path.to_string path)
-    | Error (Is_a_directory path) -> Printf.printf "Is a directory (%s).\n%!" (Path.to_string path)
-    | Error (Directory_not_empty path) -> Printf.printf "Directory isn't empty (%s).\n%!" (Path.to_string path)
-    | Error (No_directory_entry (path, name)) -> Printf.printf "No directory %s in %s.\n%!" name (Path.to_string path)
-    | Error (File_already_exists name) -> Printf.printf "File already exists (%s).\n%!" name
-    | Error No_space -> Printf.printf "Out of space.\n%!"
+    | Error x -> Printf.printf "%s\n%!" (Error.to_string x)
     | Ok x -> f x in
 
   let cwd = ref (Path.of_string "/") in

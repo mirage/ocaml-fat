@@ -18,6 +18,7 @@ open OUnit
 open Lwt
 open Fat
 open Fat_lwt
+open S
 
 let read_sector filename =
   Lwt_unix.openfile filename [ Lwt_unix.O_RDONLY ] 0o0 >>= fun fd ->
@@ -154,7 +155,7 @@ let mib = Int64.mul kib 1024L
 let ok = function
   | Result.Ok x -> x
   | Result.Error error ->
-    let msg = Fs.string_of_error error in
+    let msg = Error.to_string error in
     failwith msg
 
 let test_create () =
@@ -162,10 +163,10 @@ let test_create () =
   let filename = "HELLO.TXT" in
   ok (MemFS.create fs (Path.of_string filename));
   match ok (MemFS.stat fs (Path.of_string "/")) with
-  | Fs.Stat.Dir (_, names) ->
+  | Stat.Dir (_, names) ->
     let strings = List.map Name.to_string names in
     assert_equal ~printer:(String.concat "; ") [ filename ] strings
-  | Fs.Stat.File _ -> failwith "Not a directory"
+  | Stat.File _ -> failwith "Not a directory"
 
 let _ =
   let verbose = ref false in
