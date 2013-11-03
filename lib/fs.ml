@@ -43,7 +43,7 @@ end
 
 module type FS = sig
   type fs
-  val make: unit -> fs
+  val openfile: unit -> fs
 
   type file
 
@@ -88,7 +88,7 @@ module FATFilesystem = functor(B: BLOCK) -> struct
     ) 0 xs in
     buf
 
-  let make () =
+  let openfile () =
     let sector = Cstruct.create 512 in
     B.read_sector sector 0;
     let boot = match Boot_sector.unmarshal sector with

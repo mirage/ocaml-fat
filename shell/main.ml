@@ -63,7 +63,7 @@ let () =
     "Examine the contents of a fat filesystem";
   if !filename = "" then usage ();
 
-  let fs = Test.make () in
+  let fs = Test.openfile () in
 
   let open Test in
   let open Fs in
