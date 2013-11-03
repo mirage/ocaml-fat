@@ -206,8 +206,8 @@ module FATFilesystem = functor(B: BLOCK) -> struct
 	let new_sectors = sectors_of_chain x new_clusters in
 	let data_writes = Update.map updates (sectors @ new_sectors) bps in
 	List.iter (write_update x) data_writes;
-        (* XXX: rewrite the FAT
-	List.iter (write_update x) fat_writes; *)
+        let fat_writes = Update.(map (split (from_cstruct 0L x.fat) bps) fat_sectors bps) in
+	List.iter (write_update x) fat_writes;
 	update_directory_containing x path
 	  (fun bits ds ->
 	    let enoent = Error(No_directory_entry (Path.directory path, Path.filename path)) in
@@ -220,8 +220,7 @@ module FATFilesystem = functor(B: BLOCK) -> struct
 		let new_file_size = max file_size (Int32.of_int (Int64.to_int (Update.total_length update))) in
 		let start_cluster = List.hd (cs @ new_clusters) in
                 Ok (Name.modify bits filename new_file_size start_cluster)
-	  );
-	Ok ()
+	  )
 
   and update_directory_containing x path f =
     let parent_path = Path.directory path in
