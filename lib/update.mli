@@ -14,21 +14,33 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-type t = { offset: int64; data: Bitstring.t }
-(** an update to a buffer: write [data] at [offset] *)
+type data =
+  | String of string
+  | Cstruct of Cstruct.t
+(** payload of a buffer update *)
+
+type t = {
+  offset: int64;
+  data: data
+}
+(** an update to a block of data (which may be in memory or on disk or
+    somewhere else) *)
 
 val to_string: t -> string
 
-val hexdump: t -> unit
+val from_string: int64 -> string -> t
 
-val make: int64 -> Bitstring.t -> t
+val from_cstruct: int64 -> Cstruct.t -> t
 
-val move: int64 -> t -> t
+val shift: int64 -> t -> t
 
 val total_length: t -> int64
-(** [total_length x] returns the minimum size of the buffer needed to apply this update. *)
+(** [total_length x] returns the minimum size of the block of data
+    needed to apply this update. If the block is currently smaller
+    then it will need to be enlarged *)
 
-val apply: Bitstring.t -> t -> Bitstring.t
+val apply: Cstruct.t -> t -> unit
+(** [apply buf update] updates [buf] with [update] *)
 
 val clip: t -> int64 -> int -> t
 (** [clip x offset length] returns the fraction of the update between
@@ -41,8 +53,8 @@ val split: t -> int -> t list
     each of which corresponds to a region of length [sector_size]. Note empty
     updates are omitted. *)
 
-val map_updates: t list -> int list -> int -> t list
-(** [map_updates xs offsets] takes a sequence of virtual sector updates (eg within the
+val map: t list -> int list -> int -> t list
+(** [map xs offsets] takes a sequence of virtual sector updates (eg within the
     virtual address space of a file) and a sequence of physical offsets (eg the
     location of physical sectors on disk) and returns a sequence of physical
     sector updates. *)

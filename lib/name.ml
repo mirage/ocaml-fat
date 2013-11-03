@@ -260,17 +260,45 @@ let int_of_date x =
   let y = (x.year - 1980) lsl 9 in
   d lor m lor y
 
-let of_bitstring bits =
-  bitmatch bits with
-  | { seq: 8;
-      utf1: (10 * 8): string;
-      0x0f: 8;
-      0: 8;
-      checksum: 8;
-      utf2: (12 * 8): string;
-      0: 16;
-      utf3: (4 * 8): string
-    } ->
+cstruct lfn {
+  uint8_t seq;
+  uint8_t utf1[10];
+  uint8_t _0f;
+  uint8_t _0;
+  uint8_t checksum;
+  uint8_t utf2[12];
+  uint8_t _0_2;
+  uint8_t utf3[4]
+} as little_endian
+
+cstruct name {
+  uint8_t filename[8];
+  uint8_t ext[3];
+  uint8_t flags;
+  uint8_t _reserved;
+  uint8_t create_time_ms; (* high precision create time 0-199 in units of 10ms *)
+  uint16_t create_time;
+  uint16_t create_date;
+  uint16_t last_access_date;
+  uint16_t ea_index;
+  uint16_t last_modify_time;
+  uint16_t last_modify_date;
+  uint16_t start_cluster;
+  uint32_t file_size
+} as little_endian
+
+let sizeof = sizeof_name
+let _ = assert(sizeof_lfn = sizeof_name)
+
+let unmarshal buf =
+  if Cstruct.len buf = 0
+  then End
+  else if get_lfn__0f buf = 0x0f then begin
+    let seq = get_lfn_seq buf in
+    let utf1 = Cstruct.to_string (get_lfn_utf1 buf) in
+    let checksum = get_lfn_checksum buf in
+    let utf2 = Cstruct.to_string (get_lfn_utf2 buf) in
+    let utf3 = Cstruct.to_string (get_lfn_utf3 buf) in
     Lfn {
       lfn_deleted = seq land 0x80 = 0x80;
       lfn_last = seq land 0x40 = 0x40;
@@ -278,151 +306,126 @@ let of_bitstring bits =
       lfn_checksum = checksum;
       lfn_utf16_name = utf1 ^ utf2 ^ utf3;
     }
-    | { filename: (8 * 8): string;
-        ext: (3 * 8): string;
-        _: 1; (* unused *)
-        _: 1; (* device *)
-        archive: 1;
-        subdir: 1;
-        volume: 1;
-        system: 1;
-        hidden: 1;
-        read_only: 1;
-        _: 8; (* reserved *)
-        create_time_ms: 8; (* high precision create time 0-199 in units of 10ms *)
-        create_time: 16: littleendian;
-	create_date: 16: littleendian;
-	last_access_date: 16: littleendian;
-	ea_index: 16: littleendian;
-	last_modify_time: 16: littleendian;
-	last_modify_date: 16: littleendian;
-	start_cluster: 16: littleendian;
-	file_size: 32: littleendian
-      } ->
-        let x = int_of_char filename.[0] in
-        if x = 0
-        then End
-        else
-          let deleted = x = 0xe5 in
-          filename.[0] <- char_of_int (if x = 0x05 then 0xe5 else x);
-          Dos {
-            filename = remove_padding filename;
-            ext = remove_padding ext;
-            read_only = read_only;
-            deleted = deleted;
-            hidden = hidden;
-            system = system;
-            volume = volume;
-            subdir = subdir;
-            archive = archive;
-            create = time_of_int create_date create_time create_time_ms;
-            access = time_of_int last_access_date 0 0;
-            modify = time_of_int last_modify_date last_modify_time 0;
-            start_cluster = start_cluster;
-            file_size = file_size
-          }
-    | { _ } ->
-      let (s, off, len) = bits in
-      if len = 0
-      then End
-      else failwith (Printf.sprintf "Not a dir entry off=%d len=%d" off len)
+  end else begin
+    let filename = Cstruct.to_string (get_name_filename buf) in
+    let ext = Cstruct.to_string (get_name_ext buf) in
+    let flags = get_name_flags buf in
+    let read_only = flags land 0x1 = 0x1 in
+    let hidden = flags land 0x2 = 0x2 in
+    let system = flags land 0x4 = 0x4 in
+    let volume = flags land 0x8 = 0x8 in
+    let subdir = flags land 0x10 = 0x10 in
+    let archive = flags land 0x20 = 0x20 in
+    let create_time_ms = get_name_create_time_ms buf in
+    let create_time = get_name_create_time buf in
+    let create_date = get_name_create_date buf in
+    let last_access_date = get_name_last_access_date buf in
+    let ea_index = get_name_ea_index buf in
+    let last_modify_time = get_name_last_modify_time buf in
+    let last_modify_date = get_name_last_modify_date buf in
+    let start_cluster = get_name_start_cluster buf in
+    let file_size = get_name_file_size buf in
+    let x = int_of_char filename.[0] in
+    if x = 0
+    then End
+    else
+      let deleted = x = 0xe5 in
+      filename.[0] <- char_of_int (if x = 0x05 then 0xe5 else x);
+      Dos {
+        filename = remove_padding filename;
+        ext = remove_padding ext;
+        read_only = read_only;
+        deleted = deleted;
+        hidden = hidden;
+        system = system;
+        volume = volume;
+        subdir = subdir;
+        archive = archive;
+        create = time_of_int create_date create_time create_time_ms;
+        access = time_of_int last_access_date 0 0;
+        modify = time_of_int last_modify_date last_modify_time 0;
+        start_cluster = start_cluster;
+        file_size = file_size
+      }
+  end
 
-    let to_bitstring = function
-      | End ->
-	let zeroes = String.make 32 (char_of_int 0) in
-	BITSTRING {
-	  zeroes: (32 * 8): string
-	}
-      | Lfn l ->
-	let seq = l.lfn_seq lor (if l.lfn_last then 0x40 else 0) lor (if l.lfn_deleted then 0x80 else 0) in
-	let utf = add_padding (char_of_int 0xff) 26 l.lfn_utf16_name in
-	let utf1 = String.sub utf 0 10 in
-	let utf2 = String.sub utf 10 12 in
-	let utf3 = String.sub utf 22 4 in
-	let checksum = l.lfn_checksum in
-	BITSTRING {
-	  seq: 8;
-          utf1: (10 * 8): string;
-          0x0f: 8;
-          0: 8;
-          checksum: 8;
-          utf2: (12 * 8): string;
-          0: 16;
-          utf3: (4 * 8): string
-	}
-      | Dos x ->
-	let filename = add_padding ' ' 8 x.filename in
-	let y = int_of_char filename.[0] in
-        filename.[0] <- char_of_int (if y = 0xe5 then 0x05 else y);
-	if x.deleted then filename.[0] <- char_of_int 0xe5;
-	let ext = add_padding ' ' 3 x.ext in
-	let create_time_ms = x.create.ms in
-	let create_time = int_of_time x.create in
-	let create_date = int_of_date x.create in
-	let last_access_date = int_of_date x.access in
-	let last_modify_time = int_of_time x.modify in
-	let last_modify_date = int_of_date x.modify in
-	BITSTRING {
-	  filename: (8 * 8): string;
-          ext: (3 * 8): string;
-          false: 1; (* unused *)
-          false: 1; (* device *)
-          x.archive: 1;
-          x.subdir: 1;
-          x.volume: 1;
-          x.system: 1;
-          x.hidden: 1;
-          x.read_only: 1;
-          0: 8; (* reserved *)
-          create_time_ms: 8; (* high precision create time 0-199 in units of 10ms *)
-          create_time: 16: littleendian;
-          create_date: 16: littleendian;
-	  last_access_date: 16: littleendian;
-	  0: 16: littleendian;
-	  last_modify_time: 16: littleendian;
-	  last_modify_date: 16: littleendian;
-	  x.start_cluster: 16: littleendian;
-	  x.file_size: 32: littleendian
-	}
+let marshal (buf: Cstruct.t) t =
+  for i = 0 to Cstruct.len buf - 1 do
+    Cstruct.set_uint8 buf i 0
+  done;
+  match t with
+  | End -> ()
+  | Lfn l ->
+    let seq = l.lfn_seq lor (if l.lfn_last then 0x40 else 0) lor (if l.lfn_deleted then 0x80 else 0) in
+    let utf = add_padding (char_of_int 0xff) 26 l.lfn_utf16_name in
+    let utf1 = String.sub utf 0 10 in
+    let utf2 = String.sub utf 10 12 in
+    let utf3 = String.sub utf 22 4 in
+    let checksum = l.lfn_checksum in
+    set_lfn_seq buf seq;
+    set_lfn_utf1 utf1 0 buf;
+    set_lfn__0f buf 0x0f;
+    set_lfn__0 buf 0x0;
+    set_lfn_checksum buf checksum;
+    set_lfn_utf2 utf2 0 buf;
+    set_lfn__0_2 buf 0x0;
+    set_lfn_utf3 utf3 0 buf
+  | Dos x ->
+    let filename = add_padding ' ' 8 x.filename in
+    let y = int_of_char filename.[0] in
+    filename.[0] <- char_of_int (if y = 0xe5 then 0x05 else y);
+    if x.deleted then filename.[0] <- char_of_int 0xe5;
+    let ext = add_padding ' ' 3 x.ext in
+    let create_time_ms = x.create.ms in
+    let create_time = int_of_time x.create in
+    let create_date = int_of_date x.create in
+    let last_access_date = int_of_date x.access in
+    let last_modify_time = int_of_time x.modify in
+    let last_modify_date = int_of_date x.modify in
 
-let entry_size = 32 (* bytes *)
+    set_name_filename filename 0 buf;
+    set_name_ext ext 0 buf;
+    let flags =
+      (if x.read_only then 0x1  else 0x0) lor
+      (if x.hidden    then 0x2  else 0x0) lor
+      (if x.system    then 0x4  else 0x0) lor
+      (if x.volume    then 0x8  else 0x0) lor
+      (if x.subdir    then 0x10 else 0x0) lor
+      (if x.archive   then 0x20 else 0x0) in
+    set_name_flags buf flags;
+    set_name__reserved buf 0;
+    set_name_create_time_ms buf create_time_ms;
+    set_name_create_time buf create_time;
+    set_name_create_date buf create_date;
+    set_name_last_access_date buf last_access_date;
+    set_name_ea_index buf 0;
+    set_name_last_modify_time buf last_modify_time;
+    set_name_last_modify_date buf last_modify_date;
+    set_name_start_cluster buf x.start_cluster;
+    set_name_file_size buf x.file_size
 
-(** [bitstring_chop n b] splits [b] into a list of bitstrings, all but possibly
-    the last of size [n] *)
-let bitstring_chop n bits =
-  let module B = Bitstring in
-  let rec inner acc bits =
-    if B.bitstring_length bits <= n then bits :: acc
-    else inner (B.takebits n bits :: acc) (B.dropbits n bits) in
-  List.rev (inner [] bits)
+let blocks buf =
+  let rec loop acc offset remaining =
+    if Cstruct.len buf < sizeof (* ignore extra space at the end *)
+    then List.rev acc
+    else
+      let this = offset, (Cstruct.sub buf 0 sizeof) in
+      let offset = offset + sizeof in
+      let remaining = Cstruct.shift buf sizeof in
+      loop (this :: acc) offset remaining in
+  loop [] 0 buf
 
-(** [blocks bits] returns the directory chopped into individual bitstrings,
-    each one containing a possible Dir_entry (fragment) *)
-let blocks bits =
-  let list = bitstring_chop (8 * entry_size) bits in
-  List.rev (fst (List.fold_left (fun (acc, offset) bs -> ((offset, bs)::acc, offset + entry_size)) ([], 0) list))
-
-(** [fold f initial bits] folds [f acc offset dir_entry] across all the
-    reconstructed directory entries contained in bits. *)
 let fold f initial bits =
   (* Stop as soon as we find a None *)
   let rec inner lfns acc = function
     | [] -> acc
     | (offset, b) :: bs ->
-      begin match of_bitstring b with
+      begin match unmarshal b with
       | Dos { deleted = true }
       | Lfn { lfn_deleted = true } -> inner lfns acc bs
       | Lfn lfn -> inner ((offset, lfn) :: lfns) acc bs
       | Dos d ->
         let expected_checksum = compute_checksum d in
-	      (* TESTING ONLY *)
-              let b' = to_bitstring (Dos d) in
-	      if Bitstring.compare b b' <> 0 then begin
-                Printf.printf "On disk:\n";
-		Bitstring.hexdump_bitstring stdout b;
-		Printf.printf "Regenerated:\n";
-		Bitstring.hexdump_bitstring stdout b'
-	      end;
         (* reconstruct UTF text from LFNs *)
         let lfns = List.sort (fun a b -> compare (snd a).lfn_seq (snd b).lfn_seq) lfns in
         List.iter
@@ -441,33 +444,31 @@ let fold f initial bits =
       end in
     inner [] initial (blocks bits)
 
-(** [list bits] returns a list of valid (not deleted) directory entries
-    contained within the directory [bits] *)
 let list = fold (fun acc _ d -> d :: acc) []
 
-(** [next bits] returns the bit offset of a free directory slot. Note this
-    function does not recycle deleted elements. *)
 let next bits =
-   let rec inner offset = function
+   let rec inner = function
      | [] -> None
-     | b :: bs ->
-       begin match of_bitstring b with
+     | (offset, b) :: bs ->
+       begin match unmarshal b with
        | End -> Some offset
-       | _ -> inner (8 * 32 + offset) bs
+       | _ -> inner bs
        end in
-   inner 0 (bitstring_chop (8 * 32) bits)
+   inner (blocks bits)
 
 (** [add block t] return the update required to add [t] to the directory [block].
     Note the update may be beyond the end of [block] indicating more space needs 
     to be allocated. *)
 let add block r =
-  let after_block = Bitstring.bitstring_length block in
-  let next_bit = match next block with
+  let after_block = Cstruct.len block in
+  let next_byte = match next block with
   | Some b -> b
   | None -> after_block in
   let dir_entries = to_single_entries r in
-  let bits = Bitstring.concat (List.map to_bitstring dir_entries) in
-   [ Update.make (Int64.of_int (next_bit / 8)) bits ]
+  let buf = Cstruct.create (List.length dir_entries * sizeof) in
+  List.iter (fun ((_, buf), entry) -> marshal buf entry)
+    (List.combine (blocks buf) dir_entries);
+  [ Update.from_cstruct (Int64.of_int next_byte) buf ]
 
 let name_match name x =
   let utf_name = ascii_to_utf16 name in
@@ -491,28 +492,30 @@ let remove block filename =
   match find filename (list block) with
   | Some r ->
     let offsets = fst r.dos :: (List.map fst r.lfns) in
-    List.rev (List.fold_left
-      (fun acc offset ->
-        let b = Bitstring.takebits (8 * entry_size) (Bitstring.dropbits (8 * offset) block) in
-        let update = match of_bitstring b with
-        | Lfn lfn ->
-          let lfn' = { lfn with lfn_deleted = true } in
-          Update.make (Int64.of_int offset) (to_bitstring (Lfn lfn'))
-        | Dos dos ->
-          let dos' = { dos with deleted = true } in
-          Update.make (Int64.of_int offset) (to_bitstring (Dos dos'))
-        | End -> assert false
-        in
-        update :: acc
-      ) [] offsets)
+    List.rev (List.fold_left (fun acc offset ->
+      let b = Cstruct.sub block offset sizeof in
+      let delta = Cstruct.create sizeof in
+      begin match unmarshal b with
+      | Lfn lfn ->
+        let lfn' = { lfn with lfn_deleted = true } in
+        marshal delta (Lfn lfn')
+      | Dos dos ->
+        let dos' = { dos with deleted = true } in
+        marshal b (Dos dos')
+      | End -> assert false
+      end;
+      Update.from_cstruct (Int64.of_int offset) delta :: acc
+    ) [] offsets)
   | None -> [] (* no updates implies nothing to remove *)
 
 let modify block filename file_size start_cluster =
   fold (fun acc offset x ->
-    if name_match filename x
-    then
-    let offset, dos = x.dos in
-    let dos' = { dos with file_size = file_size; start_cluster = start_cluster } in
-    (Update.make (Int64.of_int offset) (to_bitstring (Dos dos'))) :: acc
-    else acc
+    if not(name_match filename x)
+    then acc
+    else
+      let offset, dos = x.dos in
+      let dos' = { dos with file_size = file_size; start_cluster = start_cluster } in
+      let b = Cstruct.create sizeof in
+      marshal b (Dos dos');
+      Update.from_cstruct (Int64.of_int offset) b :: acc
   ) [] block

@@ -30,21 +30,21 @@ module UnixBlock = struct
     let file = Unix.openfile filename flags 0o0 in
     finally (fun () -> f file) (fun () -> Unix.close file)
 
-  let read_sector n =
+  let read_sector buf n =
     with_file [ Unix.O_RDONLY ] !filename
       (fun f ->
         ignore(Unix.lseek f (n * sector_size) Unix.SEEK_SET);
         let results = String.create sector_size in
         really_read f results 0 sector_size;
-        Bitstring.bitstring_of_string results
+        Cstruct.blit_from_string results 0 buf 0 sector_size
       )
 
-  let write_sector n bs =
-    assert(Bitstring.bitstring_length bs / 8 = sector_size);
+  let write_sector buf n =
     with_file [ Unix.O_WRONLY ] !filename
       (fun f ->
 	ignore(Unix.lseek f (n * sector_size) Unix.SEEK_SET);
-	let m = Unix.write f (Bitstring.string_of_bitstring bs) 0 sector_size in
+        let string = Cstruct.to_string buf in
+	let m = Unix.write f string 0 sector_size in
 	if m <> sector_size then failwith (Printf.sprintf "short write: sector=%d written=%d" n m)
       )
 end
@@ -98,11 +98,15 @@ let () =
 	| Stat.File s ->
 	  let file_size = Int32.to_int (Name.file_size_of s) in
 	  handle_error
-	    (fun data ->
-	      let data = Bitstring.string_of_bitstring data in
-	      Printf.printf "%s\n%!" data;
-	      if String.length data <> file_size
-	      then Printf.printf "Short read; expected %d got %d\n%!" file_size (String.length data)
+	    (fun datas ->
+              let n = ref 0 in
+              List.iter (fun buf ->
+                Printf.printf "%s" (Cstruct.to_string buf);
+                n := !n + (Cstruct.len buf)
+              ) datas;
+              Printf.printf "\n%!";
+	      if !n <> file_size
+	      then Printf.printf "Short read; expected %d got %d\n%!" file_size !n
 	    ) (read fs (file_of_path fs path) 0 file_size)
       ) (stat fs path) in
   let do_del file =
@@ -138,17 +142,18 @@ let () =
       (fun ifd ->
 	handle_error (fun _ ->
 	  let block_size = 1024 in
-          let results = String.create block_size in
-	  let bs = Bitstring.bitstring_of_string results in
+          let string = String.create block_size in
+          let block = Cstruct.create block_size in 
 	  let finished = ref false in
 	  let offset = ref 0 in
 	  while not !finished do
-	    let n = Unix.read ifd results 0 block_size in
+	    let n = Unix.read ifd string 0 block_size in
+            Cstruct.blit_from_string string 0 block 0 n;
 	    finished := n <> block_size;
 	    handle_error
 	      (fun () ->
 		offset := !offset + block_size;
-	      ) (write fs (file_of_path fs inside) !offset (Bitstring.takebits (n * 8) bs))
+	      ) (write fs (file_of_path fs inside) !offset (Cstruct.sub block 0 n))
 	  done
 	) (create fs inside)
       ) in

@@ -100,39 +100,47 @@ val time_of_int: int -> int -> int -> datetime
 
 val int_of_date: datetime -> int
 
-val of_bitstring: Bitstring.t -> single_entry
+(** [unmarshal slot] parses a single directory entry from [slot] *)
+val unmarshal: Cstruct.t -> single_entry
 
-val to_bitstring: single_entry -> Bitstring.t
+(** [marshal slot single_entry] writes [single_entry] into [slot] *)
+val marshal: Cstruct.t -> single_entry -> unit
 
-val entry_size: int
+(** the size in bytes of a single_entry *)
+val sizeof: int
 
-val blocks: Bitstring.t -> (int * Bitstring.t) list
 (** [blocks bits] returns the directory chopped into individual bitstrings,
-    each one containing a possible Dir_entry (fragment) *)
+    each one containing a possible name (fragment) *)
+val blocks: Cstruct.t -> (int * Cstruct.t) list
 
-val fold: ('a -> int -> r -> 'a) -> 'a -> Bitstring.t -> 'a
 (** [fold f initial bits] folds [f acc offset dir_entry] across all the
     reconstructed directory entries contained in bits. *)
+val fold: ('a -> int -> r -> 'a) -> 'a -> Cstruct.t -> 'a
 
-val list: Bitstring.t -> r list
 (** [list bits] returns a list of valid (not deleted) directory entries
     contained within the directory [bits] *)
+val list: Cstruct.t -> r list
 
-val next: Bitstring.t -> int option
 (** [next bits] returns the bit offset of a free directory slot. Note this
     function does not recycle deleted elements. *)
+val next: Cstruct.t -> int option
 
-val add: Bitstring.t -> r -> Update.t list
-(** [add block t] return the update required to add [t] to the directory [block].
-    Note the update may be beyond the end of [block] indicating more space needs 
-    to be allocated. *)
+(** [add block t] return the update required to add [t] to the directory
+    [block]. Note the update may be beyond the end of [block] indicating
+    more space needs to be allocated. *)
+val add: Cstruct.t -> r -> Update.t list
 
 val name_match: string -> r -> bool
 
-val find: string -> r list -> r option
-(** [find name list] returns [Some d] where [d] is a Dir_entry.t with
+(** [find name list] returns [Some d] where [d] is a name with
     name [name] (or None) *)
+val find: string -> r list -> r option
 
-val remove: Bitstring.t -> string -> Update.t list
+(** [remove buf filename] erases any entries corresponding to [filename]
+    from [buf] *)
+val remove: Cstruct.t -> string -> Update.t list
 
-val modify: Bitstring.t -> string -> int32 -> int -> Update.t list
+(** [modify buf filename file_size start_cluster] changes any entry
+    corresponding to [filename] in [buf] to have [file_size] and
+    [start_cluster] *)
+val modify: Cstruct.t -> string -> int32 -> int -> Update.t list

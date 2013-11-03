@@ -20,8 +20,8 @@ module type BLOCK = sig
   val ( >>= ) : 'a t -> ('a -> 'b t) -> 'b t
   val return : 'a -> 'a t
 
-  val read_sector: int -> Bitstring.t
-  val write_sector: int -> Bitstring.t -> unit
+  val read_sector: Cstruct.t -> int -> unit
+  val write_sector: Cstruct.t -> int -> unit
 end
 
 type error =
@@ -61,47 +61,43 @@ module type FS = sig
   (** [stat fs f] returns information about file [f] on filesystem [fs] *)
   val stat: fs -> Path.t -> (Stat.t, error) result
 
-  (** [write fs f offset bs] writes bitstring [bs] at [offset] in file [f] on
+  (** [write fs f offset data] writes [data] at [offset] in file [f] on
       filesystem [fs] *)
-  val write: fs -> file -> int -> Bitstring.t -> (unit, error) result
+  val write: fs -> file -> int -> Cstruct.t -> (unit, error) result
 
   (** [read fs f offset length] reads up to [length] bytes from file [f] on
       filesystem [fs]. If less data is returned than requested, this indicates
       end-of-file. *)
-  val read: fs -> file -> int -> int -> (Bitstring.t, error) result
+  val read: fs -> file -> int -> int -> (Cstruct.t list, error) result
 end
 
 module FATFilesystem = functor(B: BLOCK) -> struct
   type fs = {
     boot: Boot_sector.t;
-    format: Fat_format.t;      (** FAT12, 16 or 32 *)
-    fat: Entry.fat;            (** contains the whole FAT *)
-    mutable root: Bitstring.t; (** contains the root directory *)
+    format: Fat_format.t; (** FAT12, 16 or 32 *)
+    fat: Entry.fat;       (** contains the whole FAT *)
+    root: Cstruct.t;      (** contains the root directory *)
   }
 
   let read_sectors xs =
-    let sectors = List.map B.read_sector xs in
-    Bitstring.concat sectors
-
-  let read_sectors_cstruct xs =
     let buf = Cstruct.create (List.length xs * 512) in
-    ignore(List.fold_left (fun buf x ->
-      let bs = B.read_sector x in
-      let txt = Bitstring.string_of_bitstring bs in
-      Cstruct.blit_from_string txt 0 buf 0 512;
-      Cstruct.shift buf 512
-    ) buf xs);
+    let (_: int) = List.fold_left (fun i n ->
+      let sector = Cstruct.sub buf (i * 512) 512 in
+      B.read_sector sector n;
+      i + 1
+    ) 0 xs in
     buf
 
-  let make () = 
-    let boot_sector = Cstruct.of_string (Bitstring.string_of_bitstring (B.read_sector 0)) in
-    let boot = match Boot_sector.unmarshal boot_sector with
+  let make () =
+    let sector = Cstruct.create 512 in
+    B.read_sector sector 0;
+    let boot = match Boot_sector.unmarshal sector with
     | Ok x -> x
     | Error x -> failwith x in
     let format = match Boot_sector.detect_format boot with
     | None -> failwith "Failed to detect FAT format"
     | Some format -> format in
-    let fat = read_sectors_cstruct (Boot_sector.sectors_of_fat boot) in
+    let fat = read_sectors (Boot_sector.sectors_of_fat boot) in
     let root = read_sectors (Boot_sector.sectors_of_root_dir boot) in
     { boot = boot; format = format; fat = fat; root = root }
 
@@ -126,9 +122,10 @@ module FATFilesystem = functor(B: BLOCK) -> struct
     let bps = x.boot.Boot_sector.bytes_per_sector in
     let sector_number = Int64.(div offset (of_int bps)) in
     let sector_offset = Int64.(sub offset (mul sector_number (of_int bps))) in
-    let sector = B.read_sector (Int64.to_int sector_number) in
-    let sector' = Update.apply sector { update with Update.offset = sector_offset } in
-    B.write_sector (Int64.to_int sector_number) sector'
+    let sector = Cstruct.create 512 in
+    B.read_sector sector (Int64.to_int sector_number);
+    Update.apply sector { update with Update.offset = sector_offset };
+    B.write_sector sector (Int64.to_int sector_number)
 
   (** [find x path] returns a [find_result] corresponding to the object
       stored at [path] *)
@@ -198,16 +195,16 @@ module FATFilesystem = functor(B: BLOCK) -> struct
       | Rootdir, true ->
 	Error No_space
       | (Rootdir | Chain _), false ->
-	let writes = Update.map_updates updates sectors bps in
+	let writes = Update.map updates sectors bps in
 	List.iter (write_update x) writes;
-	if location = Rootdir then x.root <- Update.apply x.root update;
+	if location = Rootdir then Update.apply x.root update;
 	Ok ()
       | Chain cs, true ->
 	let last = if cs = [] then None else Some (List.hd (List.tl cs)) in
 	let new_clusters = Entry.extend x.boot x.format x.fat last clusters_needed in
 	let fat_sectors = Boot_sector.sectors_of_fat x.boot in
 	let new_sectors = sectors_of_chain x new_clusters in
-	let data_writes = Update.map_updates updates (sectors @ new_sectors) bps in
+	let data_writes = Update.map updates (sectors @ new_sectors) bps in
 	List.iter (write_update x) data_writes;
         (* XXX: rewrite the FAT
 	List.iter (write_update x) fat_writes; *)
@@ -222,12 +219,7 @@ module FATFilesystem = functor(B: BLOCK) -> struct
 		let file_size = Name.file_size_of d in
 		let new_file_size = max file_size (Int32.of_int (Int64.to_int (Update.total_length update))) in
 		let start_cluster = List.hd (cs @ new_clusters) in
-		begin match Name.modify bits filename new_file_size start_cluster with
-		  | [] ->
-		    enoent
-		  | x ->
-		    Ok x
-		end
+                Ok (Name.modify bits filename new_file_size start_cluster)
 	  );
 	Ok ()
 
@@ -244,6 +236,10 @@ module FATFilesystem = functor(B: BLOCK) -> struct
 	begin match f contents ds with
 	  | Error x -> Error x
 	  | Ok updates ->
+                          (*
+            (* Rewrite all sectors *)
+            let updates = Update.(map (split (from_cstruct 0L contents) 512) sectors 512) in
+  *)
 	    begin match iter (write_to_location x parent_path location) updates with
 	      | Ok () -> Ok ()
 	      | Error x -> Error x
@@ -253,7 +249,7 @@ module FATFilesystem = functor(B: BLOCK) -> struct
   (** [write x f offset bs] writes bitstring [bs] at [offset] in file [f] on
       filesystem [x] *)
   let write x f offset bs =
-    let u = Update.make (Int64.of_int offset) bs in
+    let u = Update.from_cstruct (Int64.of_int offset) bs in
     let location = match chain_of_file x f with
       | None -> Rootdir
       | Some c -> Chain (sectors_of_chain x c) in
@@ -336,16 +332,18 @@ module FATFilesystem = functor(B: BLOCK) -> struct
       if bytes_read >= length
       then List.rev acc
       else
-	let data = B.read_sector (SectorMap.find sm sector) in
+        let data = Cstruct.create bps in
+        B.read_sector data (SectorMap.find sm sector);
         (* consider whether this sector needs to be clipped to be within the range *)
-	let bs_start = max 0 (the_start - sector * bps) in
-	let bs_trim_from_end = max 0 ((sector + 1) * bps - the_end) in
-	let bs_length = bps - bs_start - bs_trim_from_end in
-	if bs_length <> bps
-	then inner (bitstring_clip data bs_start (bs_length * 8) :: acc) (sector + 1) (bytes_read + bs_length)
-	else inner (data :: acc) (sector + 1) (bytes_read + bs_length) in
-    let bitstrings = inner [] start_sector 0 in
-    Bitstring.concat bitstrings
+	let needed_start = max 0 (the_start - sector * bps) in
+	let needed_trim_from_end = max 0 ((sector + 1) * bps - the_end) in
+	let needed_length = bps - needed_start - needed_trim_from_end in
+        let data =
+	  if needed_length <> bps
+          then Cstruct.sub data needed_start needed_length
+          else data in
+        inner (data :: acc) (sector + 1) (bytes_read + needed_length) in
+    inner [] start_sector 0
       
   let read x path the_start length =
     match find x path with
