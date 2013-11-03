@@ -26,78 +26,58 @@ let to_string = function
   | End -> "E"
   | Bad -> "B"
 
-  let of_fat16 n fat =
-    bitmatch fat with
-      | { x: 16: littleendian, offset(16*n) } ->
-	if x = 0 then Free
-        else if x >= 0x0002 && x <= 0xffef then Used x
-        else if x >= 0xfff8 && x <= 0xffff then End
-        else Bad
-      | { _ } -> Bad
-  let to_fat16 n fat x =
-    let x' = match x with
-    | Free -> 0 | End -> 0xffff | Bad -> 0xfff7 | Used x -> x in
-    let bs = BITSTRING {
-      x' : 16 : littleendian
-    } in
-    Update.make (Int64.of_int (2 * n)) bs
+let of_fat16 n fat =
+  if Cstruct.len fat < (2 * n + 2)
+  then Bad
+  else
+    let x = Cstruct.LE.get_uint16 buf (2 * n) in
+    if x = 0 then Free
+    else if x >= 0x0002 && x <= 0xffef then Used x
+    else if x >= 0xfff8 && x <= 0xffff then End
+    else Bad
 
-  (* TESTING only *)
-  let of_fat16 n fat =
-    let x = of_fat16 n fat in
-    let fat' = Update.apply fat (to_fat16 n fat x) in
-    if Bitstring.compare fat fat' <> 0 then begin
-      Printf.printf "before =\n";
-      Bitstring.hexdump_bitstring stdout fat;
-      Printf.printf "after =\n";
-      Bitstring.hexdump_bitstring stdout fat';
-    end;
-    x
-  let of_fat32 n fat =
-    bitmatch fat with
-      | { x: 32: littleendian, offset(32 * n) } ->
-        if x = 0l then Free
-        else if x >= 0x00000002l && x <= 0x0fffffefl then Used (Int32.to_int x)
-        else if x >= 0x0ffffff8l && x <= 0x0fffffffl then End
-        else Bad
-      | { _ } -> Bad
-  let to_fat32 n fat x =
-    let x' = match x with
-      | Free -> 0l | End -> 0x0fffffffl | Bad -> 0x0ffffff7l | Used x -> Int32.of_int x in
-    let bs = BITSTRING {
-      x' : 32 : littleendian
-    } in
-    Update.make (Int64.of_int (4 * n)) bs
-  let of_fat12 n fat =
-    (* 2 entries span groups of 3 bytes *)
-    bitmatch fat with
-      | { x: 16: littleendian, offset((3 * n)/2) } ->
-        let x = if n mod 2 = 0 then x land 0xfff else x lsr 4 in
-        if x = 0 then Free
-        else if x >= 0x002 && x <= 0xfef then Used x
-        else if x >= 0xff8 && x <= 0xfff then End
-        else Bad
-      | { _ } -> Bad
-  let to_fat12 n fat x = failwith "Unimplemented"
+let to_fat16 n fat x =
+  let x' = match x with
+  | Free -> 0 | End -> 0xffff | Bad -> 0xfff7 | Used x -> x in
+  let bs = Cstruct.create 2 in
+  Cstruct.LE.set_uint16 bs x';
+  Update.make (Int64.of_int (2 * n)) bs
 
-(** Return the bitstring containing the nth FAT entry *)
-let of_bitstring format =
+let of_fat32 n fat =
+  if Cstruct.len fat < (4 * n + 4)
+  then Bad
+  else
+    let x = Cstruct.LE.get_uint32 fat (4 * n) in
+    if x = 0l then Free
+    else if x >= 0x00000002l && x <= 0x0fffffefl then Used (Int32.to_int x)
+    else if x >= 0x0ffffff8l && x <= 0x0fffffffl then End
+    else Bad
+
+let to_fat32 n fat x =
+  let x' = match x with
+  | Free -> 0l | End -> 0x0fffffffl | Bad -> 0x0ffffff7l | Used x -> Int32.of_int x in
+  let bs = Cstruct.create 4 in
+  Cstruct.LE.set_uint32 bs 0 x';
+  Update.make (Int64.of_int (4 * n)) bs
+
+let of_fat n fat = failwith "Unimplemented"
+let to_fat12 n fat x = failwith "Unimplemented"
+
+let unmarshal format =
   let open Fat_format in
   match format with
   | FAT16 -> of_fat16
   | FAT32 -> of_fat32
   | FAT12 -> of_fat12
 
-(** Return the bitstring describing the FAT delta and the offset within
-    the FAT table. *)
-let to_bitstring format =
+let marshal format =
   let open Fat_format in
   match format with
   | FAT16 -> to_fat16
   | FAT32 -> to_fat32
   | FAT12 -> to_fat12
 
-  module IntSet = Set.Make(struct type t = int let compare = compare end)
+module IntSet = Set.Make(struct type t = int let compare = compare end)
 
 (** [follow_chain format fat cluster] returns the list of sectors containing
     data according to FAT [fat] which is of type [format]. *)
@@ -107,7 +87,7 @@ let follow_chain format fat cluster =
   let rec inner (list, set) = function
     | 0 -> list (* either zero-length chain if list = [] or corrupt file *)
     | 1 -> list (* corrupt file *)
-    | i -> begin match of_bitstring format i fat with
+    | i -> begin match unmarshal format i fat with
       | End -> i :: list
       | Free | Bad -> list (* corrupt file *)
       | Used j ->
@@ -125,7 +105,7 @@ let find_free_from boot format fat start =
   let n = Boot_sector.clusters boot in
   let rec inner i =
     if i = n then None
-    else match of_bitstring format i fat with
+    else match unmarshal format i fat with
     | Free -> Some i
     | _ -> inner (i + 1) in
   inner start
@@ -151,7 +131,7 @@ let extend boot format fat (last: int option) n =
       let updates = fst(List.fold_left (fun (acc, last) next ->
         (match last with
          | Some last ->
-            to_bitstring format last fat (Used next) :: acc
+            marshal format last fat (Used next) :: acc
          | None -> acc), Some next
         ) ([], last) to_allocate) in
-      to_bitstring format final fat End :: updates (* reverse order *), to_allocate
+      marshal format final fat End :: updates (* reverse order *), to_allocate
