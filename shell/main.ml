@@ -1,17 +1,26 @@
 (* This is a toplevel-like test program *)
 
 open Fat
-open Fat_utils
+open S
 
 let filename = ref ""
 let sector_size = 512
 
 module UnixBlock = struct
 
+  type 'a t = 'a
+  let ( >>= ) x f = f x
+  let return x = x
+
   let rec really_read fd string off n =
     if n=0 then () else
       let m = Unix.read fd string off n in
-      if m = 0 then raise End_of_file;
+      if m = 0 then begin
+        for i = 0 to String.length string - 1 do
+          string.[i] <- '\000'
+        done;
+        ()
+      end else
       really_read fd string (off+m) (n-m)
 
   let finally f g =
@@ -27,54 +36,51 @@ module UnixBlock = struct
     let file = Unix.openfile filename flags 0o0 in
     finally (fun () -> f file) (fun () -> Unix.close file)
 
-  let read_sector n =
+  let read_sector buf n =
     with_file [ Unix.O_RDONLY ] !filename
       (fun f ->
         ignore(Unix.lseek f (n * sector_size) Unix.SEEK_SET);
         let results = String.create sector_size in
         really_read f results 0 sector_size;
-        Bitstring.bitstring_of_string results
+        Cstruct.blit_from_string results 0 buf 0 sector_size
       )
 
-  let write_sector n bs =
-    assert(Bitstring.bitstring_length bs / 8 = sector_size);
+  let write_sector buf n =
     with_file [ Unix.O_WRONLY ] !filename
       (fun f ->
 	ignore(Unix.lseek f (n * sector_size) Unix.SEEK_SET);
-	let m = Unix.write f (Bitstring.string_of_bitstring bs) 0 sector_size in
+        let string = Cstruct.to_string buf in
+	let m = Unix.write f string 0 sector_size in
 	if m <> sector_size then failwith (Printf.sprintf "short write: sector=%d written=%d" n m)
       )
-
-  let read_sectors ss =
-    Bitstring.concat (List.map read_sector ss)
-
 end
 
-module Test = (FATFilesystem(UnixBlock) : FS)
+module Test = (Fs.Make(UnixBlock) : S.FS)
 
 let () =
   let usage () =
     Printf.fprintf stderr "Usage:\n";
     Printf.fprintf stderr "  %s -fs <filesystem>\n" Sys.argv.(0);
     exit 1 in
-
+  let create_size = ref None in
   Arg.parse
-    [ ("-fs", Arg.Set_string filename, "Filesystem to open") ]
+    [ ("-fs", Arg.Set_string filename, "Filesystem to open");
+      ("-create", Arg.Int (fun x -> create_size := Some x), "Create using the given number of MiB")]
     (fun x -> Printf.fprintf stderr "Skipping unknown argument: %s\n" x)
     "Examine the contents of a fat filesystem";
   if !filename = "" then usage ();
 
-  let fs = Test.make () in
+  let fs = match !create_size with
+  | None -> Test.openfile ()
+  | Some x -> Test.make (Int64.(mul (mul (of_int x) 1024L) 1024L))
+  in
 
   let open Test in
+  let open Fs in
+  let open Result in
   let handle_error f = function
-    | Error (Not_a_directory path) -> Printf.printf "Not a directory (%s).\n%!" (Path.to_string path)
-    | Error (Is_a_directory path) -> Printf.printf "Is a directory (%s).\n%!" (Path.to_string path)
-    | Error (Directory_not_empty path) -> Printf.printf "Directory isn't empty (%s).\n%!" (Path.to_string path)
-    | Error (No_directory_entry (path, name)) -> Printf.printf "No directory %s in %s.\n%!" name (Path.to_string path)
-    | Error (File_already_exists name) -> Printf.printf "File already exists (%s).\n%!" name
-    | Error No_space -> Printf.printf "Out of space.\n%!"
-    | Success x -> f x in
+    | Error x -> Printf.printf "%s\n%!" (Error.to_string x)
+    | Ok x -> f x in
 
   let cwd = ref (Path.of_string "/") in
 
@@ -85,7 +91,7 @@ let () =
 	| Stat.Dir (_, dirs) ->
 	  Printf.printf "Directory for A:%s\n\n" (Path.to_string path);
 	  List.iter
-            (fun x -> Printf.printf "%s\n" (Dir_entry.to_string x)) dirs;
+            (fun x -> Printf.printf "%s\n" (Name.to_string x)) dirs;
 	  Printf.printf "%9d files\n%!" (List.length dirs)
 	| Stat.File _ -> Printf.printf "Not a directory.\n%!"
       ) (stat fs path) in
@@ -95,13 +101,17 @@ let () =
       (function
 	| Stat.Dir (_, _) -> Printf.printf "Is a directory.\n%!"
 	| Stat.File s ->
-	  let file_size = Int32.to_int (Dir_entry.file_size_of s) in
+	  let file_size = Int32.to_int (Name.file_size_of s) in
 	  handle_error
-	    (fun data ->
-	      let data = Bitstring.string_of_bitstring data in
-	      Printf.printf "%s\n%!" data;
-	      if String.length data <> file_size
-	      then Printf.printf "Short read; expected %d got %d\n%!" file_size (String.length data)
+	    (fun datas ->
+              let n = ref 0 in
+              List.iter (fun buf ->
+                Printf.printf "%s" (Cstruct.to_string buf);
+                n := !n + (Cstruct.len buf)
+              ) datas;
+              Printf.printf "\n%!";
+	      if !n <> file_size
+	      then Printf.printf "Short read; expected %d got %d\n%!" file_size !n
 	    ) (read fs (file_of_path fs path) 0 file_size)
       ) (stat fs path) in
   let do_del file =
@@ -137,17 +147,18 @@ let () =
       (fun ifd ->
 	handle_error (fun _ ->
 	  let block_size = 1024 in
-          let results = String.create block_size in
-	  let bs = Bitstring.bitstring_of_string results in
+          let string = String.create block_size in
+          let block = Cstruct.create block_size in 
 	  let finished = ref false in
 	  let offset = ref 0 in
 	  while not !finished do
-	    let n = Unix.read ifd results 0 block_size in
+	    let n = Unix.read ifd string 0 block_size in
+            Cstruct.blit_from_string string 0 block 0 n;
 	    finished := n <> block_size;
 	    handle_error
 	      (fun () ->
 		offset := !offset + block_size;
-	      ) (write fs (file_of_path fs inside) !offset (Bitstring.takebits (n * 8) bs))
+	      ) (write fs (file_of_path fs inside) !offset (Cstruct.sub block 0 n))
 	  done
 	) (create fs inside)
       ) in
@@ -163,9 +174,14 @@ let () =
       copy_file_in outside inside
     end in
 
+  (** True if string 'x' starts with prefix 'prefix' *)
+  let startswith prefix x =
+    let x_l = String.length x and prefix_l = String.length prefix in
+    prefix_l <= x_l && String.sub x 0 prefix_l  = prefix in
+
   let parse_path x =
     (* return a pair of (outside filesystem bool, absolute path) *)
-    let is_outside = Stringext.startswith "u:" x in
+    let is_outside = startswith "u:" x in
     (* strip off the drive prefix *)
     let x' = if is_outside then String.sub x 2 (String.length x - 2) else x in
     let is_absolute = x' <> "" && x'.[0] = '/' in
@@ -192,7 +208,7 @@ let () =
 	  | Stat.Dir (_, dirs) ->
 	    List.iter
 	      (fun dir ->
-		inner (Path.cd path (Dir_entry.filename_of dir))
+		inner (Path.cd path (Name.filename_of dir))
 	      ) dirs;
 	    handle_error (fun () -> ()) (destroy fs path)
 	  | Stat.File _ ->
@@ -203,7 +219,8 @@ let () =
   let finished = ref false in
   while not !finished do
     Printf.printf "A:%s> %!" (Path.to_string !cwd);
-    match Stringext.split ' ' (input_line stdin) with
+    let space = Re_str.regexp_string " " in
+    match Re_str.split space (input_line stdin) with
     | [ "dir" ] -> do_dir ""
     | [ "dir"; path ] -> do_dir path
     | [ "cd"; path ] -> do_cd path
