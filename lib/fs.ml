@@ -43,6 +43,10 @@ end
 
 module type FS = sig
   type fs
+
+  val make: int64 -> fs
+  (** [make size] creates a filesystem of size [size] *)
+
   val openfile: unit -> fs
 
   type file
@@ -88,6 +92,41 @@ module FATFilesystem = functor(B: BLOCK) -> struct
     ) 0 xs in
     buf
 
+  let write_update x ({ Update.offset = offset; data = data } as update) =
+    let bps = x.boot.Boot_sector.bytes_per_sector in
+    let sector_number = Int64.(div offset (of_int bps)) in
+    let sector_offset = Int64.(sub offset (mul sector_number (of_int bps))) in
+    let sector = Cstruct.create 512 in
+    B.read_sector sector (Int64.to_int sector_number);
+    Update.apply sector { update with Update.offset = sector_offset };
+    B.write_sector sector (Int64.to_int sector_number)
+
+  let make size =
+    let boot = Boot_sector.make size in
+    let format = match Boot_sector.detect_format boot with
+    | None -> failwith "Failed to detect FAT format"
+    | Some format -> format in
+
+    let sector = Cstruct.create 512 in
+    Boot_sector.marshal sector boot;
+
+    let fat = Entry.make boot format in
+    let fat_sectors = Boot_sector.sectors_of_fat boot in
+    let fat_writes = Update.(map (split (from_cstruct 0L fat) 512) fat_sectors 512) in
+
+    let root_sectors = Boot_sector.sectors_of_root_dir boot in
+    let root = Cstruct.create (List.length root_sectors * 512) in
+    for i = 0 to Cstruct.len root - 1 do
+      Cstruct.set_uint8 root i 0
+    done;
+    let root_writes = Update.(map (split (from_cstruct 0L root) 512) root_sectors 512) in 
+
+    let x = { boot = boot; format = format; fat = fat; root = root } in
+    write_update x (Update.from_cstruct 0L sector);
+    List.iter (write_update x) fat_writes;
+    List.iter (write_update x) root_writes;
+    x
+
   let openfile () =
     let sector = Cstruct.create 512 in
     B.read_sector sector 0;
@@ -117,15 +156,6 @@ module FATFilesystem = functor(B: BLOCK) -> struct
 
   let read_whole_file x { Name.dos = _, ({ Name.file_size = file_size; subdir = subdir } as f) } =
     read_sectors (sectors_of_file x f)
-
-  let write_update x ({ Update.offset = offset; data = data } as update) =
-    let bps = x.boot.Boot_sector.bytes_per_sector in
-    let sector_number = Int64.(div offset (of_int bps)) in
-    let sector_offset = Int64.(sub offset (mul sector_number (of_int bps))) in
-    let sector = Cstruct.create 512 in
-    B.read_sector sector (Int64.to_int sector_number);
-    Update.apply sector { update with Update.offset = sector_offset };
-    B.write_sector sector (Int64.to_int sector_number)
 
   (** [find x path] returns a [find_result] corresponding to the object
       stored at [path] *)

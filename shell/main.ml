@@ -14,7 +14,12 @@ module UnixBlock = struct
   let rec really_read fd string off n =
     if n=0 then () else
       let m = Unix.read fd string off n in
-      if m = 0 then raise End_of_file;
+      if m = 0 then begin
+        for i = 0 to String.length string - 1 do
+          string.[i] <- '\000'
+        done;
+        ()
+      end else
       really_read fd string (off+m) (n-m)
 
   let finally f g =
@@ -56,14 +61,18 @@ let () =
     Printf.fprintf stderr "Usage:\n";
     Printf.fprintf stderr "  %s -fs <filesystem>\n" Sys.argv.(0);
     exit 1 in
-
+  let create_size = ref None in
   Arg.parse
-    [ ("-fs", Arg.Set_string filename, "Filesystem to open") ]
+    [ ("-fs", Arg.Set_string filename, "Filesystem to open");
+      ("-create", Arg.Int (fun x -> create_size := Some x), "Create using the given number of MiB")]
     (fun x -> Printf.fprintf stderr "Skipping unknown argument: %s\n" x)
     "Examine the contents of a fat filesystem";
   if !filename = "" then usage ();
 
-  let fs = Test.openfile () in
+  let fs = match !create_size with
+  | None -> Test.openfile ()
+  | Some x -> Test.make (Int64.(mul (mul (of_int x) 1024L) 1024L))
+  in
 
   let open Test in
   let open Fs in

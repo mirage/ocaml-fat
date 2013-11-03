@@ -18,15 +18,17 @@ open Result
 
 type t = {
   oem_name: string;
-  bytes_per_sector: int;
-  sectors_per_cluster: int;
-  reserved_sectors: int;
-  number_of_fats: int;
-  number_of_root_dir_entries: int;
+  bytes_per_sector: int; (* usually 512 *)
+  sectors_per_cluster: int; (* 1, 2, 4, 8, 16, 32, 64, 128 *)
+  reserved_sectors: int; (* at least 1, usually 32 for FAT32 *)
+  number_of_fats: int; (* usually 2; sometimes 1 for RAM disks *)
+  number_of_root_dir_entries: int; (* 0 on FAT32 *)
   total_sectors: int32;
   sectors_per_fat: int;
   hidden_preceeding_sectors: int32;
 }
+
+let default_oem_name = "ocamlfat"
 
 cstruct t {
   uint8_t jump_instruction[3];
@@ -130,13 +132,36 @@ let clusters x =
 
 (* Choose between FAT12, FAT16 and FAT32 using heuristic from:
    http://averstak.tripod.com/fatdox/bootsec.htm *)
-let detect_format x =
+let format_of_clusters number_of_clusters =
   let open Fat_format in
-  let number_of_clusters = clusters x in
   if number_of_clusters < 4087 then Some FAT12
   else if number_of_clusters < 65527 then Some FAT16
   else if number_of_clusters < 268435457 then Some FAT32
   else None
+
+let detect_format x =
+  format_of_clusters (clusters x)
+
+let make size =
+  let bytes_per_sector = 512 in
+  (* XXX: need to choose this intelligently based on the disk size *)
+  let sectors_per_cluster = 4 in
+  let total_sectors = Int64.(to_int32 (div (add 511L size) 512L)) in
+  let total_clusters = Int32.(to_int (div total_sectors (of_int sectors_per_cluster))) in
+  let open Fat_format in
+  match format_of_clusters total_clusters with
+  | Some FAT12 | Some FAT32 | None ->
+    failwith "unimplemented"
+  | Some FAT16 ->
+    let sectors_per_fat = (total_clusters * 2) / 512 in
+    let reserved_sectors = 4 in
+    let number_of_fats = 1 in
+    let number_of_root_dir_entries = 512 in
+    let hidden_preceeding_sectors = 0l in
+    { oem_name = default_oem_name;
+      bytes_per_sector; sectors_per_cluster; total_sectors;
+      sectors_per_fat; reserved_sectors; number_of_fats;
+      number_of_root_dir_entries; hidden_preceeding_sectors }
 
 let sectors_of_fat x =
   ints x.reserved_sectors x.sectors_per_fat

@@ -75,6 +75,20 @@ let marshal format =
   | FAT32 -> to_fat32
   | FAT12 -> to_fat12
 
+let make boot_sector format =
+  let n = Boot_sector.clusters boot_sector in
+  let open Fat_format in
+  let bytes_per_cluster = match format with
+  | FAT16 -> 2
+  | FAT32 -> 4
+  | FAT12 -> failwith "Unimplemented" in
+  let buf = Cstruct.create (n * bytes_per_cluster) in
+  for i = 0 to n - 1 do
+    marshal format i buf Free
+  done;
+  buf
+
+
 module IntSet = Set.Make(struct type t = int let compare = compare end)
 
 (** [follow_chain format fat cluster] returns the list of sectors containing

@@ -28,6 +28,10 @@ type t = {
   hidden_preceeding_sectors: int32;
 }
 
+val make: int64 -> t
+(** [make size] creates a boot sector able to accommodate a disk
+    of size [size] bytes *)
+
 val sizeof: int
 
 val marshal: Cstruct.t -> t -> unit

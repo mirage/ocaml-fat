@@ -25,6 +25,10 @@ val to_string: t -> string
 (** a whole File Allocation Table *)
 type fat = Cstruct.t
 
+val make: Boot_sector.t -> Fat_format.t -> Cstruct.t
+(** [make boot_sector format] creates an empty FAT given the parameters
+    in [boot_sector] and the [format] *)
+
 (** [unmarshal format n fat] return the [n]th [fat] entry in [format] *)
 val unmarshal: Fat_format.t -> int -> fat -> t
 
