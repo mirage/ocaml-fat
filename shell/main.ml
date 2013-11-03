@@ -54,7 +54,7 @@ module UnixBlock = struct
       )
 end
 
-module Test = (Fs.FATFilesystem(UnixBlock) : Fs.FS)
+module Test = (Fs.Make(UnixBlock) : Fs.FS)
 
 let () =
   let usage () =

@@ -90,6 +90,11 @@ val compute_checksum: dos -> int
 val make: ?read_only:bool -> ?system:bool -> ?subdir:bool -> string -> r
 
 val to_string: r -> string
+(** [to_string r] returns a canonical version of the name *)
+
+val to_pretty_string: r -> string
+(** [to_pretty_string r] returns a pretty version of the filename,
+    containing both legacy DOS, extra UTF16, size and time components. *)
 
 val int_to_hms: int -> int * int * int
 val hms_to_int: int * int * int -> int

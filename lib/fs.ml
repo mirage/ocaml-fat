@@ -22,6 +22,20 @@ type error =
   | File_already_exists of string
   | No_space
 
+let string_of_error = function
+  | Not_a_directory x ->
+    Printf.sprintf "Not_a_directory %s" (Path.to_string x)
+  | Is_a_directory x->
+    Printf.sprintf "Is_a_directory %s" (Path.to_string x)
+  | Directory_not_empty x ->
+    Printf.sprintf "Directory_not_empty %s" (Path.to_string x)
+  | No_directory_entry (x, y) ->
+    Printf.sprintf "No_directory_entry %s %s" (Path.to_string x) y
+  | File_already_exists x ->
+    Printf.sprintf "File_already_exists %s" x
+  | No_space ->
+    Printf.sprintf "No_space"
+
 open Result
 let iter f xs = List.fold_left (fun r x -> match r with Error _ -> r | _ -> f x) (Ok ()) xs
 
@@ -65,7 +79,7 @@ module type FS = sig
   val read: fs -> file -> int -> int -> (Cstruct.t list, error) result
 end
 
-module FATFilesystem = functor(B: S.IO) -> struct
+module Make = functor(B: S.IO) -> struct
   type fs = {
     boot: Boot_sector.t;
     format: Fat_format.t; (** FAT12, 16 or 32 *)

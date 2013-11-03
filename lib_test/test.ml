@@ -146,6 +146,27 @@ let test_parse_boot_sector () =
     return () in
   Lwt_main.run t
 
+module MemFS = Fs.Make(MemoryIO)
+
+let kib = 1024L
+let mib = Int64.mul kib 1024L
+
+let ok = function
+  | Result.Ok x -> x
+  | Result.Error error ->
+    let msg = Fs.string_of_error error in
+    failwith msg
+
+let test_create () =
+  let fs = MemFS.make (Int64.mul 16L mib) in
+  let filename = "HELLO.TXT" in
+  ok (MemFS.create fs (Path.of_string filename));
+  match ok (MemFS.stat fs (Path.of_string "/")) with
+  | Fs.Stat.Dir (_, names) ->
+    let strings = List.map Name.to_string names in
+    assert_equal ~printer:(String.concat "; ") [ filename ] strings
+  | Fs.Stat.File _ -> failwith "Not a directory"
+
 let _ =
   let verbose = ref false in
   Arg.parse [
@@ -158,6 +179,7 @@ let _ =
     "checksum" >:: checksum_test;
     "test_root_list" >:: test_root_list;
     "test_chains" >:: test_chains;
+    "test_create" >:: test_create;
   ] in
   run_test_tt ~verbose:!verbose suite
 

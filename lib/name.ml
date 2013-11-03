@@ -216,14 +216,15 @@ let make ?(read_only=false) ?(system=false) ?(subdir=false) filename =
     lfns = List.map (fun l -> 0, l) lfns
   }
 
-let to_string x =
-  let trim_utf16 x =
-    let chars = ref (String.length x / 2) in
-    for i = 0 to String.length x / 2 - 1 do
-      let a = int_of_char x.[i * 2] and b = int_of_char x.[i * 2 + 1] in
-      if a = 0xff && b = 0xff && i < !chars then chars := i
-    done;
-    String.sub x 0 (!chars * 2) in
+let trim_utf16 x =
+  let chars = ref (String.length x / 2) in
+  for i = 0 to String.length x / 2 - 1 do
+    let a = int_of_char x.[i * 2] and b = int_of_char x.[i * 2 + 1] in
+    if a = 0xff && b = 0xff && i < !chars then chars := i
+  done;
+  String.sub x 0 (!chars * 2)
+
+let to_pretty_string x =
   let d = snd x.dos in
   Printf.sprintf "%-8s %-3s %10s %04d-%02d-%02d  %02d:%02d  %s"
     d.filename d.ext
@@ -231,6 +232,11 @@ let to_string x =
     d.create.year d.create.month d.create.day
     d.create.hours d.create.mins
     (trim_utf16 x.utf_filename)
+
+let to_string x =
+  let d = snd x.dos in
+  let y = trim_utf16 x.utf_filename in
+  if y = "" then d.filename ^ "." ^ d.ext else y
 
 let int_to_hms time =
   let hours = ((time lsr 11) land 0b11111) in
