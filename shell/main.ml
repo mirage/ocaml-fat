@@ -47,10 +47,6 @@ module UnixBlock = struct
 	let m = Unix.write f (Bitstring.string_of_bitstring bs) 0 sector_size in
 	if m <> sector_size then failwith (Printf.sprintf "short write: sector=%d written=%d" n m)
       )
-
-  let read_sectors ss =
-    Bitstring.concat (List.map read_sector ss)
-
 end
 
 module Test = (Fs.FATFilesystem(UnixBlock) : Fs.FS)

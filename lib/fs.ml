@@ -21,7 +21,6 @@ module type BLOCK = sig
   val return : 'a -> 'a t
 
   val read_sector: int -> Bitstring.t
-  val read_sectors: int list -> Bitstring.t
   val write_sector: int -> Bitstring.t -> unit
 end
 
@@ -79,6 +78,11 @@ module FATFilesystem = functor(B: BLOCK) -> struct
     mutable fat: Bitstring.t;    (** contains the whole FAT *)
     mutable root: Bitstring.t;   (** contains the root directory *)
   }
+
+  let read_sectors xs =
+    let sectors = List.map B.read_sector xs in
+    Bitstring.concat sectors
+
   let make () = 
     let boot_sector = Cstruct.of_string (Bitstring.string_of_bitstring (B.read_sector 0)) in
     let boot = match Boot_sector.unmarshal boot_sector with
@@ -87,8 +91,8 @@ module FATFilesystem = functor(B: BLOCK) -> struct
     let format = match Boot_sector.detect_format boot with
     | None -> failwith "Failed to detect FAT format"
     | Some format -> format in
-    let fat = B.read_sectors (Boot_sector.sectors_of_fat boot) in
-    let root = B.read_sectors (Boot_sector.sectors_of_root_dir boot) in
+    let fat = read_sectors (Boot_sector.sectors_of_fat boot) in
+    let root = read_sectors (Boot_sector.sectors_of_root_dir boot) in
     { boot = boot; format = format; fat = fat; root = root }
 
   type file = Path.t
@@ -106,7 +110,7 @@ module FATFilesystem = functor(B: BLOCK) -> struct
     sectors_of_chain x chain
 
   let read_whole_file x { Name.dos = _, ({ Name.file_size = file_size; subdir = subdir } as f) } =
-    B.read_sectors (sectors_of_file x f)
+    read_sectors (sectors_of_file x f)
 
   let write_update x ({ Update.offset = offset; data = data } as update) =
     let bps = x.boot.Boot_sector.bytes_per_sector in
@@ -231,7 +235,7 @@ module FATFilesystem = functor(B: BLOCK) -> struct
 	let sectors, location = match (chain_of_file x parent_path) with
 	  | None -> Boot_sector.sectors_of_root_dir x.boot, Rootdir
 	  | Some c -> sectors_of_chain x c, Chain c in
-	let contents = B.read_sectors sectors in
+	let contents = read_sectors sectors in
 	begin match f contents ds with
 	  | Error x -> Error x
 	  | Ok updates ->
