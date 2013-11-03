@@ -267,7 +267,7 @@ cstruct lfn {
   uint8_t _0;
   uint8_t checksum;
   uint8_t utf2[12];
-  uint8_t _0_2;
+  uint16_t _0_2;
   uint8_t utf3[4]
 } as little_endian
 
@@ -406,12 +406,12 @@ let marshal (buf: Cstruct.t) t =
 
 let blocks buf =
   let rec loop acc offset remaining =
-    if Cstruct.len buf < sizeof (* ignore extra space at the end *)
+    if Cstruct.len remaining < sizeof (* ignore extra space at the end *)
     then List.rev acc
     else
-      let this = offset, (Cstruct.sub buf 0 sizeof) in
+      let this = offset, (Cstruct.sub remaining 0 sizeof) in
       let offset = offset + sizeof in
-      let remaining = Cstruct.shift buf sizeof in
+      let remaining = Cstruct.shift remaining sizeof in
       loop (this :: acc) offset remaining in
   loop [] 0 buf
 
