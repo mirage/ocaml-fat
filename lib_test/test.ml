@@ -26,6 +26,14 @@ let read_sector filename =
   Lwt_unix.close fd >>= fun () ->
   return buf
 
+let read_whole_file filename =
+  Lwt_unix.openfile filename [ Lwt_unix.O_RDONLY ] 0o0 >>= fun fd ->
+  let size = (Unix.stat filename).Unix.st_size in
+  let buf = Cstruct.create size in
+  really_read fd buf >>= fun () ->
+  Lwt_unix.close fd >>= fun () ->
+  return buf
+
 let checksum_test () =
   let open Name in
   let checksum_tests = [
@@ -90,7 +98,7 @@ let test_chains () =
     assert_equal ~printer (Some Fat_format.FAT16) (Boot_sector.detect_format boot);
     let bytes = Bitstring.bitstring_of_file "lib_test/root.dat" in
     let all = Name.list bytes in
-    let fat = Bitstring.bitstring_of_file "lib_test/fat.dat" in
+    read_whole_file "lib_test/fat.dat" >>= fun fat ->
 
     let expected = [0; 0; 0; 2235; 3] in
     let actual = List.map (fun x -> (snd (x.Name.dos)).Name.start_cluster) all in

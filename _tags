@@ -69,5 +69,5 @@
 <lib_test/test.{native,byte}>: custom
 # OASIS_STOP
 <lib/boot_sector.ml>: syntax_camlp4o, pkg_cstruct.syntax
-<lib/entry.ml>: syntax_camlp4o, pkg_bitstring.syntax
+<lib/entry.ml>: syntax_camlp4o, pkg_cstruct.syntax
 <lib/name.ml>: syntax_camlp4o, pkg_bitstring.syntax

@@ -26,11 +26,13 @@ let to_string = function
   | End -> "E"
   | Bad -> "B"
 
+type fat = Cstruct.t
+
 let of_fat16 n fat =
   if Cstruct.len fat < (2 * n + 2)
   then Bad
   else
-    let x = Cstruct.LE.get_uint16 buf (2 * n) in
+    let x = Cstruct.LE.get_uint16 fat (2 * n) in
     if x = 0 then Free
     else if x >= 0x0002 && x <= 0xffef then Used x
     else if x >= 0xfff8 && x <= 0xffff then End
@@ -39,9 +41,7 @@ let of_fat16 n fat =
 let to_fat16 n fat x =
   let x' = match x with
   | Free -> 0 | End -> 0xffff | Bad -> 0xfff7 | Used x -> x in
-  let bs = Cstruct.create 2 in
-  Cstruct.LE.set_uint16 bs x';
-  Update.make (Int64.of_int (2 * n)) bs
+  Cstruct.LE.set_uint16 fat (2 * n) x'
 
 let of_fat32 n fat =
   if Cstruct.len fat < (4 * n + 4)
@@ -56,11 +56,9 @@ let of_fat32 n fat =
 let to_fat32 n fat x =
   let x' = match x with
   | Free -> 0l | End -> 0x0fffffffl | Bad -> 0x0ffffff7l | Used x -> Int32.of_int x in
-  let bs = Cstruct.create 4 in
-  Cstruct.LE.set_uint32 bs 0 x';
-  Update.make (Int64.of_int (4 * n)) bs
+  Cstruct.LE.set_uint32 fat (4 * n) x'
 
-let of_fat n fat = failwith "Unimplemented"
+let of_fat12 n fat = failwith "Unimplemented"
 let to_fat12 n fat x = failwith "Unimplemented"
 
 let unmarshal format =
@@ -121,17 +119,19 @@ let extend boot format fat (last: int option) n =
       | Some c -> inner (c :: acc) (c + 1) (i - 1) in
   let to_allocate = inner [] (match last with None -> initial | Some x -> x) n in
   if n = 0
-  then [], []
+  then []
   else
     if List.length to_allocate <> n
-    then [], [] (* allocation failed *)
+    then [] (* allocation failed *)
     else
       let final = List.hd to_allocate in
       let to_allocate = List.rev to_allocate in
-      let updates = fst(List.fold_left (fun (acc, last) next ->
+      ignore(List.fold_left (fun last next ->
         (match last with
          | Some last ->
-            marshal format last fat (Used next) :: acc
-         | None -> acc), Some next
-        ) ([], last) to_allocate) in
-      marshal format final fat End :: updates (* reverse order *), to_allocate
+            marshal format last fat (Used next)
+         | None -> ());
+        Some next
+      ) last to_allocate);
+      marshal format final fat End;
+      to_allocate

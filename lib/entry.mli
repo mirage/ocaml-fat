@@ -22,39 +22,26 @@ type t =
 
 val to_string: t -> string
 
-val of_fat16: int -> Bitstring.t -> t
+(** a whole File Allocation Table *)
+type fat = Cstruct.t
 
-val to_fat16: int -> Bitstring.t -> t -> Update.t
+(** [unmarshal format n fat] return the [n]th [fat] entry in [format] *)
+val unmarshal: Fat_format.t -> int -> fat -> t
 
-val of_fat32: int -> Bitstring.t -> t
+(** [marhsal format n fat v] update the [n]th [fat] entry in [format] with [v] *)
+val marshal: Fat_format.t -> int -> fat -> t -> unit
 
-val to_fat32: int -> Bitstring.t -> t -> Update.t
-
-val of_fat12: int -> Bitstring.t -> t
-
-val to_fat12: int -> Bitstring.t -> t -> Update.t
-
-val of_bitstring: Fat_format.t -> int -> Bitstring.t -> t
-(** Return the bitstring containing the nth FAT entry *)
-
-val to_bitstring: Fat_format.t -> int -> Bitstring.t -> t -> Update.t
-(** Return the bitstring describing the FAT delta and the offset within
-    the FAT table. *)
-(*
-module IntSet : Set.S with type t := int
-*)
-
-val follow_chain: Fat_format.t -> Bitstring.t -> int -> int list
 (** [follow_chain format fat cluster] returns the list of sectors containing
     data according to FAT [fat] which is of type [format]. *)
+val follow_chain: Fat_format.t -> fat -> int -> int list
 
-val initial: int
 (** first valid entry *)
+val initial: int
 
-val find_free_from: Boot_sector.t -> Fat_format.t -> Bitstring.t -> int -> int option
 (** [find_free_from boot format fat start] returns an unallocated cluster
     after [start] *)
+val find_free_from: Boot_sector.t -> Fat_format.t -> fat -> int -> int option
 
-val extend: Boot_sector.t -> Fat_format.t -> Bitstring.t -> int option -> int -> Update.t list * int list
 (** [extend boot format fat last n] allocates [n] free clusters to extend
     the chain whose current end is [last] *)
+val extend: Boot_sector.t -> Fat_format.t -> fat -> int option -> int -> int list

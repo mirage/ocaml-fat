@@ -74,14 +74,24 @@ end
 module FATFilesystem = functor(B: BLOCK) -> struct
   type fs = {
     boot: Boot_sector.t;
-    format: Fat_format.t;        (** FAT12, 16 or 32 *)
-    mutable fat: Bitstring.t;    (** contains the whole FAT *)
-    mutable root: Bitstring.t;   (** contains the root directory *)
+    format: Fat_format.t;      (** FAT12, 16 or 32 *)
+    fat: Entry.fat;            (** contains the whole FAT *)
+    mutable root: Bitstring.t; (** contains the root directory *)
   }
 
   let read_sectors xs =
     let sectors = List.map B.read_sector xs in
     Bitstring.concat sectors
+
+  let read_sectors_cstruct xs =
+    let buf = Cstruct.create (List.length xs * 512) in
+    ignore(List.fold_left (fun buf x ->
+      let bs = B.read_sector x in
+      let txt = Bitstring.string_of_bitstring bs in
+      Cstruct.blit_from_string txt 0 buf 0 512;
+      Cstruct.shift buf 512
+    ) buf xs);
+    buf
 
   let make () = 
     let boot_sector = Cstruct.of_string (Bitstring.string_of_bitstring (B.read_sector 0)) in
@@ -91,7 +101,7 @@ module FATFilesystem = functor(B: BLOCK) -> struct
     let format = match Boot_sector.detect_format boot with
     | None -> failwith "Failed to detect FAT format"
     | Some format -> format in
-    let fat = read_sectors (Boot_sector.sectors_of_fat boot) in
+    let fat = read_sectors_cstruct (Boot_sector.sectors_of_fat boot) in
     let root = read_sectors (Boot_sector.sectors_of_root_dir boot) in
     { boot = boot; format = format; fat = fat; root = root }
 
@@ -194,17 +204,13 @@ module FATFilesystem = functor(B: BLOCK) -> struct
 	Ok ()
       | Chain cs, true ->
 	let last = if cs = [] then None else Some (List.hd (List.tl cs)) in
-	let fat_allocations, new_clusters = Entry.extend x.boot x.format x.fat last clusters_needed in
-	(* Split the FAT allocations into multiple sectors. Note there might be more than one
-	   per sector. *)
-	let fat_allocations_sectors = List.concat (List.map (fun x -> Update.split x bps) fat_allocations) in
+	let new_clusters = Entry.extend x.boot x.format x.fat last clusters_needed in
 	let fat_sectors = Boot_sector.sectors_of_fat x.boot in
-	let fat_writes = Update.map_updates fat_allocations_sectors fat_sectors bps in
-
 	let new_sectors = sectors_of_chain x new_clusters in
 	let data_writes = Update.map_updates updates (sectors @ new_sectors) bps in
 	List.iter (write_update x) data_writes;
-	List.iter (write_update x) fat_writes;
+        (* XXX: rewrite the FAT
+	List.iter (write_update x) fat_writes; *)
 	update_directory_containing x path
 	  (fun bits ds ->
 	    let enoent = Error(No_directory_entry (Path.directory path, Path.filename path)) in
@@ -223,7 +229,6 @@ module FATFilesystem = functor(B: BLOCK) -> struct
 		    Ok x
 		end
 	  );
-	x.fat <- List.fold_left (fun fat update -> Update.apply fat update) x.fat fat_allocations;
 	Ok ()
 
   and update_directory_containing x path f =
