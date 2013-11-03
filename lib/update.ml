@@ -48,7 +48,7 @@ let apply buf { offset; data } =
   let offset = Int64.to_int offset in
   match data with
   | String x -> Cstruct.blit_from_string x 0 buf offset (String.length x)
-  | Cstruct x -> Cstruct.blit x 0 buf 0 (Cstruct.len x)
+  | Cstruct x -> Cstruct.blit x 0 buf offset (Cstruct.len x)
 
 let sub offset length =
   let offset = Int64.to_int offset in
