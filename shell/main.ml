@@ -7,6 +7,10 @@ let sector_size = 512
 
 module UnixBlock = struct
 
+  type 'a t = 'a
+  let ( >>= ) x f = f x
+  let return x = x
+
   let rec really_read fd string off n =
     if n=0 then () else
       let m = Unix.read fd string off n in
