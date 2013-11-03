@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 49a80084774514477615404566bda15e)
+# DO NOT EDIT (digest: a60022176ac9e655301f3085fbbbc90f)
 Fat_format
 Boot_sector
 Entry
@@ -9,4 +9,6 @@ Fs
 Update
 SectorMap
 Result
+MemoryIO
+S
 # OASIS_STOP

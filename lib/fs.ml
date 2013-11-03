@@ -14,16 +14,6 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-module type BLOCK = sig
-  type 'a t
-
-  val ( >>= ) : 'a t -> ('a -> 'b t) -> 'b t
-  val return : 'a -> 'a t
-
-  val read_sector: Cstruct.t -> int -> unit
-  val write_sector: Cstruct.t -> int -> unit
-end
-
 type error =
   | Not_a_directory of Path.t
   | Is_a_directory of Path.t
@@ -75,7 +65,7 @@ module type FS = sig
   val read: fs -> file -> int -> int -> (Cstruct.t list, error) result
 end
 
-module FATFilesystem = functor(B: BLOCK) -> struct
+module FATFilesystem = functor(B: S.IO) -> struct
   type fs = {
     boot: Boot_sector.t;
     format: Fat_format.t; (** FAT12, 16 or 32 *)
