@@ -53,6 +53,8 @@ let sizeof = sizeof_t
 
 let _ = assert(sizeof = 512)
 
+let fat_id = 0xf8 (* fixed disk *)
+
 let marshal (buf: Cstruct.t) t =
   for i = 0 to Cstruct.len buf - 1 do
     Cstruct.set_uint8 buf i 0
@@ -64,7 +66,7 @@ let marshal (buf: Cstruct.t) t =
   set_t_number_of_fats buf t.number_of_fats;
   set_t_number_of_root_dir_entries buf t.number_of_root_dir_entries;
   set_t_total_sectors_small buf 0; (* means use total_sectors_large *)
-  set_t_media_descriptor buf 0xf8; (* fixed disk *)
+  set_t_media_descriptor buf fat_id;
   set_t_sectors_per_fat buf t.sectors_per_fat;
   set_t_sectors_per_track buf 0; (* not used *)
   set_t_heads buf 0; (* not used *)

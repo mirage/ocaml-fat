@@ -75,6 +75,20 @@ let marshal format =
   | FAT32 -> to_fat32
   | FAT12 -> to_fat12
 
+let cluster_0 format =
+  let open Fat_format in
+  Used ( (match format with
+          | FAT16 -> 0xff00
+          | FAT12 -> failwith "Unimplemented"
+          | FAT32 -> 0x0fffff00) lor Boot_sector.fat_id )
+
+let cluster_1 format =
+  let open Fat_format in
+  Used ( match format with
+         | FAT16 -> 0xffff
+         | FAT12 -> 0xfff
+         | FAT32 -> 0x0fffffff )
+
 let make boot_sector format =
   let n = Boot_sector.clusters boot_sector in
   let open Fat_format in
@@ -83,7 +97,9 @@ let make boot_sector format =
   | FAT32 -> 4
   | FAT12 -> failwith "Unimplemented" in
   let buf = Cstruct.create (n * bytes_per_cluster) in
-  for i = 0 to n - 1 do
+  marshal format 0 buf (cluster_0 format);
+  marshal format 1 buf (cluster_1 format);
+  for i = 2 to n - 1 do
     marshal format i buf Free
   done;
   buf

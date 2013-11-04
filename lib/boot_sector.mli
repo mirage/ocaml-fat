@@ -53,6 +53,10 @@ val detect_format: t -> Fat_format.t option
 (* Choose between FAT12, FAT16 and FAT32 using heuristic from:
    http://averstak.tripod.com/fatdox/bootsec.htm *)
 
+val fat_id: int
+(** The FAT ID which will be written in both the boot sector and
+    the 0th cluster of the FAT *)
+
 val sectors_of_fat: t -> int list
 
 val sectors_of_root_dir: t -> int list
