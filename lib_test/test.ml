@@ -168,6 +168,21 @@ let test_create () =
     assert_equal ~printer:(String.concat "; ") [ filename ] strings
   | Stat.File _ -> failwith "Not a directory"
 
+let test_write () =
+  let fs = MemFS.make (Int64.mul 16L mib) in
+  let filename = "HELLO.TXT" in
+  ok (MemFS.create fs (Path.of_string filename));
+  let file = MemFS.file_of_path fs (Path.of_string filename) in
+  let buffer = Cstruct.create 512 in
+  let txt = "All work and no play makes Dave a dull boy. " in
+  for i = 0 to Cstruct.len buffer - 1 do
+    Cstruct.set_char buffer i txt.[i mod (String.length txt)]
+  done;
+  ok (MemFS.write fs file 0 buffer);
+  ok (MemFS.write fs file 512 buffer);
+  ok (MemFS.write fs file 4096 buffer);
+  ()
+
 let _ =
   let verbose = ref false in
   Arg.parse [
@@ -181,6 +196,7 @@ let _ =
     "test_root_list" >:: test_root_list;
     "test_chains" >:: test_chains;
     "test_create" >:: test_create;
+    "test_write" >:: test_write;
   ] in
   run_test_tt ~verbose:!verbose suite
 
