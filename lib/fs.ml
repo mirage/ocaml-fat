@@ -131,6 +131,9 @@ module Make = functor(B: IO) -> struct
     | Chain of int list (** write to a file/directory stored in a chain *)
     | Rootdir           (** write to the root directory area *)
 
+  let string_of_location = function
+    | Chain xs -> Printf.sprintf "Chain [ %s ]" (String.concat "; " (List.map string_of_int xs))
+    | Rootdir -> "Rootdir"
 
   (** [chain_of_file x path] returns [Some chain] where [chain] is the chain
       corresponding to [path] or [None] if [path] cannot be found or if it
