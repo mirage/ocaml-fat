@@ -74,6 +74,7 @@ let is_empty x = bytes x.data = 0
     each of which corresponds to a region of length [sector_size]. Note empty
     updates are omitted. *)
 let split x sector_size =
+  let starting_sector_offset = Int64.(mul (div x.offset (of_int sector_size)) (of_int sector_size)) in
   let rec inner acc start =
     if Int64.(add x.offset (of_int (bytes x.data))) <= start
     then List.rev acc
@@ -81,7 +82,7 @@ let split x sector_size =
       let this = clip x start sector_size in
       let new_start = Int64.(add start (of_int sector_size)) in
       inner (if is_empty this then acc else this :: acc) new_start in
-    inner [] 0L
+    inner [] starting_sector_offset
 
 (** [map xs offsets] takes a sequence of virtual sector updates (eg within the
     virtual address space of a file) and a sequence of physical offsets (eg the
