@@ -196,7 +196,11 @@ let test_write () =
   let buffers = ok (MemFS.read fs file 0 512) in
   assert_equal ~printer:Cstruct.to_string ~cmp:cstruct_equal buffer (List.hd buffers);
   ok (MemFS.write fs file 512 buffer);
+  let buffers = ok (MemFS.read fs file 512 512) in
+  assert_equal ~printer:Cstruct.to_string ~cmp:cstruct_equal buffer (List.hd buffers);
   ok (MemFS.write fs file 4096 buffer);
+  let buffers = ok (MemFS.read fs file 4096 512) in
+  assert_equal ~printer:Cstruct.to_string ~cmp:cstruct_equal buffer (List.hd buffers);
   ()
 
 let _ =
