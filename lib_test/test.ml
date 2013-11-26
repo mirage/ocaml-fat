@@ -168,6 +168,20 @@ let test_create () =
     assert_equal ~printer:(String.concat "; ") [ filename ] strings
   | Stat.File _ -> failwith "Not a directory"
 
+exception Cstruct_differ
+
+let cstruct_equal a b =
+  let check_contents a b =
+    try
+      for i = 0 to Cstruct.len a - 1 do
+        let a' = Cstruct.get_char a i in
+        let b' = Cstruct.get_char b i in
+        if a' <> b' then raise Cstruct_differ
+      done;
+      true
+    with _ -> false in
+  (Cstruct.len a = (Cstruct.len b)) && (check_contents a b)
+
 let test_write () =
   let fs = MemFS.make (Int64.mul 16L mib) in
   let filename = "HELLO.TXT" in
@@ -179,6 +193,8 @@ let test_write () =
     Cstruct.set_char buffer i txt.[i mod (String.length txt)]
   done;
   ok (MemFS.write fs file 0 buffer);
+  let buffers = ok (MemFS.read fs file 0 512) in
+  assert_equal ~printer:Cstruct.to_string ~cmp:cstruct_equal buffer (List.hd buffers);
   ok (MemFS.write fs file 512 buffer);
   ok (MemFS.write fs file 4096 buffer);
   ()
