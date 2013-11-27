@@ -126,38 +126,55 @@ module Make = functor(B: IO) -> struct
       end in
     inner [] (Dir (Name.list x.root)) (Path.to_string_list path)
 
-  (** Updates to files and directories involve writing to the following disk areas: *)
-  type location =
-    | Chain of int list (** write to a file/directory stored in a chain *)
-    | Rootdir           (** write to the root directory area *)
+  module Location = struct
+    (* Files and directories are stored in a location *)
+    type t =
+    | Chain of int list (* a chain of clusters *)
+    | Rootdir           (* the root directory area *)
+
+    let to_string = function
+    | Chain xs -> Printf.sprintf "Chain [ %s ]" (String.concat "; " (List.map string_of_int xs))
+    | Rootdir -> "Rootdir"
+
+    (** [chain_of_file x path] returns [Some chain] where [chain] is the chain
+        corresponding to [path] or [None] if [path] cannot be found or if it
+        is / and hasn't got a chain. *)
+    let chain_of_file x path =
+      if Path.is_root path then None
+      else
+        let parent_path = Path.directory path in
+        match find x parent_path with
+        | Ok (Dir ds) ->
+          begin match Name.find (Path.filename path) ds with
+          | None -> assert false
+          | Some f ->
+            let start_cluster = (snd f.Name.dos).Name.start_cluster in
+            Some(Entry.follow_chain x.format x.fat start_cluster)
+          end
+        | _ -> None
+
+    (* return the storage location of the object identified by [path] *)
+    let of_file x path = match chain_of_file x path with
+      | None -> Rootdir
+      | Some c -> Chain c
+
+    let to_sectors x = function
+      | Chain clusters -> sectors_of_chain x clusters
+      | Rootdir -> Boot_sector.sectors_of_root_dir x.boot
+
+  end
 
 
-  (** [chain_of_file x path] returns [Some chain] where [chain] is the chain
-      corresponding to [path] or [None] if [path] cannot be found or if it
-      is / and hasn't got a chain. *)
-  let chain_of_file x path =
-    if Path.is_root path then None
-    else
-      let parent_path = Path.directory path in
-      match find x parent_path with
-	| Ok (Dir ds) ->
-	  begin match Name.find (Path.filename path) ds with
-	    | None -> assert false
-	    | Some f ->
-	      let start_cluster = (snd f.Name.dos).Name.start_cluster in
-	      Some(Entry.follow_chain x.format x.fat start_cluster)
-	  end
-	| _ -> None
-
-  (** [write_to_location x path location update] applies [update] to the data given by
-      [location]. This will also allocate any additional clusters necessary. *)
+  (** [write_to_location x path location update] applies [update]
+      to the data stored in the object at [path] which is currently
+      stored at [location]. If [location] is a chain of clusters then
+      it will be extended. *)
   let rec write_to_location x path location update : (unit, Error.t) result =
     let bps = x.boot.Boot_sector.bytes_per_sector in
     let spc = x.boot.Boot_sector.sectors_per_cluster in
     let updates = Update.split update bps in
-    let sectors = match location with 
-      | Chain clusters -> sectors_of_chain x clusters
-      | Rootdir -> Boot_sector.sectors_of_root_dir x.boot in
+
+    let sectors = Location.to_sectors x location in
     (* This would be a good point to see whether we need to allocate
        new sectors and do that too. *)
     let current_bytes = bps * (List.length sectors) in
@@ -165,16 +182,16 @@ module Make = functor(B: IO) -> struct
     let clusters_needed =
       let bpc = Int64.of_int(spc * bps) in
       Int64.(to_int(div (add bytes_needed (sub bpc 1L)) bpc)) in
-    match location, bytes_needed > 0L with
-      | Rootdir, true ->
+    ( match location, bytes_needed > 0L with
+      | Location.Rootdir, true ->
 	Error Error.No_space
-      | (Rootdir | Chain _), false ->
+      | (Location.Rootdir | Location.Chain _), false ->
 	let writes = Update.map updates sectors bps in
 	List.iter (write_update x) writes;
-	if location = Rootdir then Update.apply x.root update;
-	Ok ()
-      | Chain cs, true ->
-	let last = if cs = [] then None else Some (List.hd (List.tl cs)) in
+	if location = Location.Rootdir then Update.apply x.root update;
+	Ok location
+      | Location.Chain cs, true ->
+	let last = if cs = [] then None else Some (List.hd (List.rev cs)) in
 	let new_clusters = Entry.extend x.boot x.format x.fat last clusters_needed in
 	let fat_sectors = Boot_sector.sectors_of_fat x.boot in
 	let new_sectors = sectors_of_chain x new_clusters in
@@ -182,6 +199,14 @@ module Make = functor(B: IO) -> struct
 	List.iter (write_update x) data_writes;
         let fat_writes = Update.(map (split (from_cstruct 0L x.fat) bps) fat_sectors bps) in
 	List.iter (write_update x) fat_writes;
+        Ok (Location.Chain (cs @ new_clusters)) ) >>= fun location ->
+    match location with
+    | Location.Chain [] ->
+      (* In the case of a previously empty file (location = Chain []), we
+         have extended the chain (location = Chain (_ :: _)) so it's safe to
+         call List.hd *)
+      assert false
+    | Location.Chain (start_cluster :: _) ->
 	update_directory_containing x path
 	  (fun bits ds ->
 	    let enoent = Error(Error.No_directory_entry (Path.directory path, Path.filename path)) in
@@ -192,9 +217,9 @@ module Make = functor(B: IO) -> struct
 	      | Some d ->
 		let file_size = Name.file_size_of d in
 		let new_file_size = max file_size (Int32.of_int (Int64.to_int (Update.total_length update))) in
-		let start_cluster = List.hd (cs @ new_clusters) in
                 Ok (Name.modify bits filename new_file_size start_cluster)
 	  )
+    | Location.Rootdir -> Ok () (* the root directory itself has no attributes *)
 
   and update_directory_containing x path f =
     let parent_path = Path.directory path in
@@ -202,9 +227,8 @@ module Make = functor(B: IO) -> struct
       | Error x -> Error x
       | Ok (File _) -> Error(Error.Not_a_directory parent_path)
       | Ok (Dir ds) ->
-	let sectors, location = match (chain_of_file x parent_path) with
-	  | None -> Boot_sector.sectors_of_root_dir x.boot, Rootdir
-	  | Some c -> sectors_of_chain x c, Chain c in
+        let location = Location.of_file x parent_path in
+        let sectors = Location.to_sectors x location in
 	let contents = read_sectors sectors in
 	begin match f contents ds with
 	  | Error x -> Error x
@@ -219,13 +243,14 @@ module Make = functor(B: IO) -> struct
 	    end
 	end
 
-  (** [write x f offset bs] writes bitstring [bs] at [offset] in file [f] on
+  (** [write x f offset buf] writes [buf] at [offset] in file [f] on
       filesystem [x] *)
-  let write x f offset bs =
-    let u = Update.from_cstruct (Int64.of_int offset) bs in
-    let location = match chain_of_file x f with
-      | None -> Rootdir
-      | Some c -> Chain (sectors_of_chain x c) in
+  let write x f offset buf =
+    (* u is the update, in file co-ordinates *)
+    let u = Update.from_cstruct (Int64.of_int offset) buf in
+    (* all data is either in the root directory or in a chain of clusters.
+       Note even subdirectories are stored in chains of clusters. *)
+    let location = Location.of_file x f in
     write_to_location x f location u
 
   let create_common x path dir_entry =
@@ -284,14 +309,6 @@ module Make = functor(B: IO) -> struct
 		| Some f ->
 		  Ok (Stat.Dir (entry_of_file f, ds'))
 	      end
-
-  let bitstring_clip (s_s, s_off, s_len) offset length =
-    let s_end = s_off + s_len in
-    let the_end = offset + length in
-    let offset' = max s_off offset in
-    let end' = min s_end the_end in
-    let length' = max 0 (end' - offset') in
-    s_s, offset', length'
 
   let read_file x { Name.dos = _, ({ Name.file_size = file_size } as f) } the_start length =
     let bps = x.boot.Boot_sector.bytes_per_sector in

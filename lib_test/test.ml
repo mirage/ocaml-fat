@@ -168,12 +168,87 @@ let test_create () =
     assert_equal ~printer:(String.concat "; ") [ filename ] strings
   | Stat.File _ -> failwith "Not a directory"
 
+exception Cstruct_differ
+
+let cstruct_equal a b =
+  let check_contents a b =
+    try
+      for i = 0 to Cstruct.len a - 1 do
+        let a' = Cstruct.get_char a i in
+        let b' = Cstruct.get_char b i in
+        if a' <> b' then raise Cstruct_differ
+      done;
+      true
+    with _ -> false in
+  (Cstruct.len a = (Cstruct.len b)) && (check_contents a b)
+
+let make_pattern tag length =
+  (* if the tag is smaller than length then truncate it *)
+  let tag = if String.length tag > length then String.sub tag 0 length else tag in
+  assert (String.length tag <= length);
+  let buffer = Cstruct.create length in
+  Cstruct.blit_from_string tag 0 buffer 0 (String.length tag);
+  for i = String.length tag to Cstruct.len buffer - 1 do
+    Cstruct.set_char buffer i tag.[i mod (String.length tag)]
+  done;
+  buffer
+
+let sector_aligned_writes = [
+  0, 512;
+  512, 512;
+  4096, 512;
+]
+
+let sector_misaligned_writes = [
+  1, 1;
+  512, 1;
+  256, 512;
+]
+
+let interesting_writes = sector_aligned_writes @ sector_misaligned_writes
+
+let interesting_filenames = [
+  "HELLO.TXT";
+  "/FOO/BAR.TXT";
+] 
+
+(* Very simple, easy sector-aligned writes. Tests that
+   read(write(data)) = data; and that files are extended properly *)
+let test_write ((filename: string), (offset, length)) () =
+  let fs = MemFS.make (Int64.mul 16L mib) in
+  begin match List.rev (Path.to_string_list (Path.of_string filename)) with
+  | [] -> assert false
+  | [ _ ] -> ()
+  | _ :: dir ->
+    let (_: string list) = List.fold_left (fun current dir ->
+      ok (MemFS.mkdir fs (Path.(of_string_list (current @ [dir]))));
+      current @ [dir]
+    ) [] (List.rev dir) in
+    ()
+  end;
+  ok (MemFS.create fs (Path.of_string filename));
+  let file = MemFS.file_of_path fs (Path.of_string filename) in
+  let buffer = make_pattern "basic writing test " length in
+  ok (MemFS.write fs file 0 buffer);
+  let buffers = ok (MemFS.read fs file 0 512) in
+  assert_equal ~printer:Cstruct.to_string ~cmp:cstruct_equal buffer (List.hd buffers)
+
+let rec allpairs xs ys = match xs with
+  | [] -> []
+  | x :: xs -> List.map (fun y -> x, y) ys @ (allpairs xs ys)
+
 let _ =
   let verbose = ref false in
   Arg.parse [
     "-verbose", Arg.Unit (fun _ -> verbose := true), "Run in verbose mode";
   ] (fun x -> Printf.fprintf stderr "Ignoring argument: %s" x)
     "Test FAT filesystem";
+    
+  let write_tests =
+    List.map (fun ((filename, (off, len)) as x) ->
+        Printf.sprintf "write to %s at %d length %d" filename off len >::
+          (test_write x)
+    ) (allpairs interesting_filenames interesting_writes) in
 
   let suite = "fat" >::: [
     "test_parse_boot_sector" >:: test_parse_boot_sector;
@@ -181,6 +256,6 @@ let _ =
     "test_root_list" >:: test_root_list;
     "test_chains" >:: test_chains;
     "test_create" >:: test_create;
-  ] in
+  ] @ write_tests in
   run_test_tt ~verbose:!verbose suite
 
