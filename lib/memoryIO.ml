@@ -20,6 +20,11 @@ let ( >>= ) x f = f x
 
 let return x = x
 
+(* NB not actually page-aligned *)
+type page_aligned_buffer = Cstruct.t
+
+let alloc = Cstruct.create
+
 module IntMap = Map.Make(struct
   type t = int
   let compare (x: int) (y: int) = compare x y

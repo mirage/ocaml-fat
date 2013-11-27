@@ -12,6 +12,11 @@ module UnixBlock = struct
   let ( >>= ) x f = f x
   let return x = x
 
+  (* NB not page-aligned *)
+  type page_aligned_buffer = Cstruct.t
+
+  let alloc = Cstruct.create
+
   let rec really_read fd string off n =
     if n=0 then () else
       let m = Unix.read fd string off n in

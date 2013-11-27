@@ -19,7 +19,7 @@ open S
 
 let iter f xs = List.fold_left (fun r x -> match r with Error _ -> r | _ -> f x) (Ok ()) xs
 
-module Make = functor(B: IO) -> struct
+module Make = functor(B: SYSTEM) -> struct
   type fs = {
     boot: Boot_sector.t;
     format: Fat_format.t; (** FAT12, 16 or 32 *)

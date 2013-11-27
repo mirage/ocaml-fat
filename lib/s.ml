@@ -14,11 +14,26 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-module type IO = sig
-  type 'a t
+module type MEMORY = sig
+  type page_aligned_buffer
+  (** a page-aligned buffer, needed for zero-copy I/O *)
 
-  val ( >>= ) : 'a t -> ('a -> 'b t) -> 'b t
-  val return : 'a -> 'a t
+  val alloc: int -> page_aligned_buffer
+  (** [alloc len]: allocate a page-aligned buffer of length [len] *)
+end
+
+module type ASYNC = sig
+  type 'a t
+  (** a blocking operation of type 'a *)
+
+  val (>>=): 'a t -> ('a -> 'b t) -> 'b t
+  val return: 'a -> 'a t
+end
+
+
+module type SYSTEM = sig
+  include ASYNC
+  include MEMORY
 
   val read_sector: Cstruct.t -> int -> unit
   val write_sector: Cstruct.t -> int -> unit
