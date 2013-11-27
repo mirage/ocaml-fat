@@ -13,13 +13,12 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
-type ('a, 'b) result =
-  | Ok of 'a
-  | Error of 'b
+
+type ('a, 'b) result = [
+  | `Ok of 'a
+  | `Error of 'b
+]
 
 let ( >>= ) x f = match x with
-  | Error y -> Error y
-  | Ok z -> f z
-
-let return x = Ok x
-let fail y = Error y
+  | `Error y -> `Error y
+  | `Ok z -> f z

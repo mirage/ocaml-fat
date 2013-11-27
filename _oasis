@@ -20,7 +20,7 @@ Library fat_lwt
   Path:               lib
   Findlibname:        lwt
   Findlibparent:      fat
-  Modules:            Fat_lwt
+  Modules:            Block_device_lwt_unix
   BuildDepends:       lwt, lwt.unix, cstruct.lwt
 
 Executable shell
@@ -29,7 +29,7 @@ Executable shell
   MainIs:             main.ml
   Custom:             true
   Install:            false
-  BuildDepends:       fat-format
+  BuildDepends:       fat-format, fat-format.lwt
 
 Executable test
   CompiledObject:     best

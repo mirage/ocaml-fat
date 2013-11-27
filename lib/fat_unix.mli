@@ -14,6 +14,4 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-val really_read: Lwt_unix.file_descr -> Cstruct.t -> unit Lwt.t
-val really_write: Lwt_unix.file_descr -> Cstruct.t -> unit Lwt.t
-
+include S.BLOCK_DEVICE

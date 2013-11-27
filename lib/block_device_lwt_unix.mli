@@ -1,5 +1,5 @@
 (*
- * Copyright (C) 2011-2013 Citrix Systems Inc
+ * Copyright (C) 2013 Citrix Systems Inc
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -14,4 +14,10 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
+(** Block device on top of Lwt_unix *)
+
 include S.BLOCK_DEVICE
+
+(** {0} low-level convenience functions *)
+
+val really_read: Lwt_unix.file_descr -> Cstruct.t -> unit Lwt.t

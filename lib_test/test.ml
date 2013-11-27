@@ -17,7 +17,7 @@
 open OUnit
 open Lwt
 open Fat
-open Fat_lwt
+open Block_device_lwt_unix
 open S
 
 let read_sector filename =
@@ -94,12 +94,12 @@ let test_chains () =
     let open Boot_sector in
     read_sector "lib_test/bootsector.dat" >>= fun bytes ->
     let boot = match unmarshal bytes with
-    | Result.Error x -> failwith x
-    | Result.Ok x -> x in
+    | `Error x -> failwith x
+    | `Ok x -> x in
     let printer = function
-    | None -> "None"
-    | Some x -> "Some " ^ (Fat_format.to_string x) in
-    assert_equal ~printer (Some Fat_format.FAT16) (Boot_sector.detect_format boot);
+    | `Error e -> Printexc.to_string e
+    | `Ok x -> Fat_format.to_string x in
+    assert_equal ~printer (`Ok Fat_format.FAT16) (Boot_sector.detect_format boot);
     read_whole_file "lib_test/root.dat" >>= fun bytes ->
     let all = Name.list bytes in
     read_whole_file "lib_test/fat.dat" >>= fun fat ->
@@ -121,8 +121,8 @@ let test_parse_boot_sector () =
     let open Boot_sector in
     read_sector "lib_test/bootsector.dat" >>= fun bytes ->
     let x = match unmarshal bytes with
-    | Result.Error x -> failwith x
-    | Result.Ok x -> x in
+    | `Error x -> failwith x
+    | `Ok x -> x in
     let check x =
       assert_equal ~printer:(fun x -> x) "mkdosfs\000" x.oem_name;
       assert_equal ~printer:string_of_int 512 x.bytes_per_sector;
@@ -141,8 +141,8 @@ let test_parse_boot_sector () =
     let buf = Cstruct.create sizeof in
     marshal buf x;
     let x = match unmarshal buf with
-    | Result.Error x -> failwith x
-    | Result.Ok x -> x in
+    | `Error x -> failwith x
+    | `Ok x -> x in
     check x;
     return () in
   Lwt_main.run t
@@ -152,21 +152,24 @@ module MemFS = Fs.Make(MemoryIO)
 let kib = 1024L
 let mib = Int64.mul kib 1024L
 
-let ok = function
-  | Result.Ok x -> x
-  | Result.Error error ->
-    let msg = Error.to_string error in
-    failwith msg
+let (>>|=) x f = x >>= function
+  | `Ok x -> f x
+  | `Error error -> fail (Failure "block device failure")
 
 let test_create () =
-  let fs = MemFS.make (Int64.mul 16L mib) in
-  let filename = "HELLO.TXT" in
-  ok (MemFS.create fs (Path.of_string filename));
-  match ok (MemFS.stat fs (Path.of_string "/")) with
-  | Stat.Dir (_, names) ->
-    let strings = List.map Name.to_string names in
-    assert_equal ~printer:(String.concat "; ") [ filename ] strings
-  | Stat.File _ -> failwith "Not a directory"
+  let t =
+    MemoryIO.connect "" >>|= fun device ->
+    MemFS.make device (Int64.mul 16L mib) >>= fun fs ->
+    let filename = "HELLO.TXT" in
+    MemFS.create fs (Path.of_string filename) >>|= fun () ->
+    MemFS.stat fs (Path.of_string "/") >>|= function
+    | Stat.Dir (_, names) ->
+      let strings = List.map Name.to_string names in
+      assert_equal ~printer:(String.concat "; ") [ filename ] strings;
+      return ()
+    | Stat.File _ ->
+      fail (Failure "Not a directory") in
+  Lwt_main.run t
 
 exception Cstruct_differ
 
@@ -209,29 +212,34 @@ let interesting_writes = sector_aligned_writes @ sector_misaligned_writes
 
 let interesting_filenames = [
   "HELLO.TXT";
-  "/FOO/BAR.TXT";
+  "/FOO/BAR.TXT"; 
 ] 
 
 (* Very simple, easy sector-aligned writes. Tests that
    read(write(data)) = data; and that files are extended properly *)
 let test_write ((filename: string), (offset, length)) () =
-  let fs = MemFS.make (Int64.mul 16L mib) in
-  begin match List.rev (Path.to_string_list (Path.of_string filename)) with
-  | [] -> assert false
-  | [ _ ] -> ()
-  | _ :: dir ->
-    let (_: string list) = List.fold_left (fun current dir ->
-      ok (MemFS.mkdir fs (Path.(of_string_list (current @ [dir]))));
-      current @ [dir]
-    ) [] (List.rev dir) in
-    ()
-  end;
-  ok (MemFS.create fs (Path.of_string filename));
-  let file = MemFS.file_of_path fs (Path.of_string filename) in
-  let buffer = make_pattern "basic writing test " length in
-  ok (MemFS.write fs file 0 buffer);
-  let buffers = ok (MemFS.read fs file 0 512) in
-  assert_equal ~printer:Cstruct.to_string ~cmp:cstruct_equal buffer (List.hd buffers)
+  let t =
+    MemoryIO.connect "" >>|= fun device ->  
+    MemFS.make device (Int64.mul 16L mib) >>= fun fs ->
+    ( match List.rev (Path.to_string_list (Path.of_string filename)) with
+    | [] -> assert false
+    | [ _ ] -> return ()
+    | _ :: dir ->
+      List.fold_left (fun current dir ->
+        current >>= fun current ->
+        MemFS.mkdir fs (Path.(of_string_list (current @ [dir]))) >>|= fun () ->
+        return (current @ [dir])
+      ) (return []) (List.rev dir) >>= fun _ ->
+      return () ) >>= fun () ->
+    MemFS.create fs (Path.of_string filename) >>|= fun () ->
+    let file = MemFS.file_of_path fs (Path.of_string filename) in
+    let buffer = make_pattern "basic writing test " length in
+    MemFS.write fs file 0 buffer >>|= fun () ->
+    MemFS.read fs file 0 512 >>|= fun buffers ->
+    let to_string x = Printf.sprintf "\"%s\"(%d)" (Cstruct.to_string x) (Cstruct.len x) in
+    assert_equal ~printer:to_string ~cmp:cstruct_equal buffer (List.hd buffers);
+    return () in
+  Lwt_main.run t
 
 let rec allpairs xs ys = match xs with
   | [] -> []
