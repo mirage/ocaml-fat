@@ -24,6 +24,39 @@ type t = int M.t
 let make sectors =
   fst (List.fold_left (fun (m, i) o -> add i o m, i + 1) (empty,0) sectors)
 
+type byte_range = int * t * int
+
+let byte_range bps start len =
+  let start_sector = start / bps in
+  let end_sector = (start + len) / bps in
+  let preceeding = start - (start * bps) in
+  let succeeding = bps - (start + len - end_sector * bps) in
+  let rec loop acc i =
+    if i > end_sector
+    then acc
+    else loop (add i i acc) (i + 1) in
+  let t = loop empty start_sector in
+  preceeding, t, succeeding
+
+let clip (preceeding, _, succeeding) = function
+  | [] -> []
+  | [c] -> [Cstruct.sub c preceeding (Cstruct.len c - succeeding - preceeding)]
+  | c :: cs ->
+    let cs' = List.rev cs in
+    let last = List.hd cs' in
+    let middle' = List.tl cs' in
+    let last = Cstruct.sub last 0 (Cstruct.len last - succeeding) in
+    let head = Cstruct.sub c preceeding (Cstruct.len c - preceeding) in
+    head :: (List.rev middle') @ [ last ]
+
+let compose a b =
+  map (fun x ->
+    if not (mem x b)
+    then failwith (Printf.sprintf "SectorMap.compose: missing mapping for %d" x)
+    else find x b) a
+
+let to_list m = List.rev (fold (fun _ x acc -> x :: acc) m [])
+
 let find (x: t) sector =
   if not (mem sector x) then failwith "fault";
   find sector x

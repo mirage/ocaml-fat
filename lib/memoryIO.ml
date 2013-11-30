@@ -14,29 +14,72 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-type 'a t = 'a
+open Lwt
 
-let ( >>= ) x f = f x
+(* NB not actually page-aligned *)
+type page_aligned_buffer = Cstruct.t
 
-let return x = x
+let alloc = Cstruct.create
 
-module IntMap = Map.Make(struct
-  type t = int
-  let compare (x: int) (y: int) = compare x y
-end)
+type error =
+| Unknown of string
+| Unimplemented
+| Is_read_only
 
-let map = ref IntMap.empty
+type info = {
+  read_write: bool;
+  sector_size: int;
+  size_sectors: int64;
+}
 
-let read_sector buf n =
-  if IntMap.mem n !map
-  then Cstruct.blit (IntMap.find n !map) 0 buf 0 512
+module Int64Map = Map.Make(Int64)
+
+type device = {
+  mutable map: page_aligned_buffer Int64Map.t;
+  info: info;
+}
+
+let devices = Hashtbl.create 1
+
+let get_info { info } = info
+
+let connect name =
+  if Hashtbl.mem devices name
+  then return (`Ok (Hashtbl.find devices name))
   else
-    for i = 0 to 511 do
-      Cstruct.set_uint8 buf i 0
-    done
+    let map = Int64Map.empty in
+    let info = {
+      read_write = true;
+      sector_size = 512;
+      size_sectors = 32768L; (* 16 MiB *)
+    } in
+    let device = { map; info } in
+    Hashtbl.replace devices name device;
+    return (`Ok device)
 
-let write_sector buf n =
-  let sector = Cstruct.create 512 in
-  Cstruct.blit buf 0 sector 0 512;
-  map := IntMap.add n sector !map
+let rec read x sector_start buffers = match buffers with
+  | [] -> return (`Ok ())
+  | b :: bs ->
+    if Int64Map.mem sector_start x.map
+    then Cstruct.blit (Int64Map.find sector_start x.map) 0 b 0 512
+    else begin
+      for i = 0 to 511 do
+        Cstruct.set_uint8 b i 0
+      done
+    end;
+    read x (Int64.succ sector_start)
+      (if Cstruct.len b > 512
+       then (Cstruct.shift b 512) :: bs
+       else bs)
+
+let rec write x sector_start buffers = match buffers with
+  | [] -> return (`Ok ())
+  | b :: bs ->
+    if Cstruct.len b = 512 then begin
+      x.map <- Int64Map.add sector_start b x.map;
+      write x (Int64.succ sector_start) bs
+    end else begin
+      x.map <- Int64Map.add sector_start (Cstruct.sub b 0 512) x.map;
+      write x (Int64.succ sector_start) (Cstruct.shift b 512 :: bs)
+    end
 
