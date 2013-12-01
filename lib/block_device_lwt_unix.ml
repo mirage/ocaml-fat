@@ -36,7 +36,7 @@ type info = {
   size_sectors: int64;
 }
 
-type device = {
+type t = {
   fd: Lwt_unix.file_descr;
   info: info;
 }
@@ -51,7 +51,7 @@ let connect filename =
   } in
   return (`Ok { fd; info })
 
-let get_info { info } = info
+let get_info { info } = return info
 
 let complete op fd buffer =
   let open Lwt in

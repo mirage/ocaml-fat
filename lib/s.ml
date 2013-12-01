@@ -16,7 +16,14 @@
 
 module type BLOCK_DEVICE = sig
 
+  (** Abstract type of a block device instance. *)
+  type t
+
+  (** Abstract type for a blocking IO operation *)
   type 'a io
+
+  (** Abstract type for a page-aligned memory buffer *)
+  type page_aligned_buffer
 
   (** IO operation errors *)
   type error =
@@ -32,24 +39,23 @@ module type BLOCK_DEVICE = sig
     size_sectors: int64; (** Total sectors per device *)
   }
 
-  type device
-
-  val get_info: device -> info 
-
   (** Connect to a named block device *)
-  val connect: string -> [ `Error of error | `Ok of device ] io
+  val connect: string -> [ `Error of error | `Ok of t ] io
+
+  (** Query the characteristics of a specific block device *)
+  val get_info: t -> info io
 
   (** [read device sector_start buffers] returns a blocking IO operation which
       attempts to fill [buffers] with data starting at [sector_start].
       Each of [buffers] must be a whole number of sectors in length. *)
-  val read: device -> int64 -> Cstruct.t list -> [ `Error of error | `Ok of unit ] io
+  val read: t -> int64 -> page_aligned_buffer list -> [ `Error of error | `Ok of unit ] io
 
   (** [write device sector_start buffers] returns a blocking IO operation which
       attempts to write the data contained within [buffers] to [t] starting
       at [sector_start]. If an error occurs then the write may have partially
       succeeded.
       Each of [buffers] must be a whole number of sectors in length. *)
-  val write: device -> int64 -> Cstruct.t list -> [ `Error of error | `Ok of unit ] io
+  val write: t -> int64 -> page_aligned_buffer list -> [ `Error of error | `Ok of unit ] io
 end
 
 module Error = struct

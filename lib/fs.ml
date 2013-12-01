@@ -40,17 +40,20 @@ let make size =
   let x = { boot = boot; format = format; fat = fat; root = root } in
   `Ok x
 
-module Make (B: BLOCK_DEVICE with type 'a io = 'a Lwt.t): (FS
-  with type block_device = B.device
+module Make (B: BLOCK_DEVICE
+  with type 'a io = 'a Lwt.t
+  and type page_aligned_buffer = Cstruct.t
+): (FS
+  with type block_device = B.t
   and type 'a io = 'a Lwt.t) = struct
   type fs = {
-    device: B.device;
+    device: B.t;
     t: t;
   }
 
   type 'a io = 'a Lwt.t
 
-  type block_device = B.device
+  type block_device = B.t
 
   exception Block_device_error of B.error
 

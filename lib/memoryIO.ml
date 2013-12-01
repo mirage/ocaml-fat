@@ -36,14 +36,14 @@ type info = {
 
 module Int64Map = Map.Make(Int64)
 
-type device = {
+type t = {
   mutable map: page_aligned_buffer Int64Map.t;
   info: info;
 }
 
 let devices = Hashtbl.create 1
 
-let get_info { info } = info
+let get_info { info } = return info
 
 let connect name =
   if Hashtbl.mem devices name
