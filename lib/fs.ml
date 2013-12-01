@@ -17,13 +17,33 @@
 open Lwt
 open S
 
+type t = {
+  boot: Boot_sector.t;
+  format: Fat_format.t;
+  fat: Entry.fat;
+  root: Cstruct.t;
+}
+
+let make size =
+  let open Result in
+  let boot = Boot_sector.make size in
+  Boot_sector.detect_format boot >>= fun format ->
+
+  let fat = Entry.make boot format in
+
+  let root_sectors = Boot_sector.sectors_of_root_dir boot in
+  let root = Cstruct.create (List.length root_sectors * 512) in
+  for i = 0 to Cstruct.len root - 1 do
+    Cstruct.set_uint8 root i 0
+  done;
+
+  let x = { boot = boot; format = format; fat = fat; root = root } in
+  `Ok x
+
 module Make = functor(B: BLOCK_DEVICE) -> struct
   type fs = {
     device: B.device;
-    boot: Boot_sector.t;
-    format: Fat_format.t;
-    fat: Entry.fat;
-    root: Cstruct.t;
+    t: t;
   }
 
   type block_device = B.device
@@ -50,7 +70,7 @@ module Make = functor(B: BLOCK_DEVICE) -> struct
     return buf
 
   let write_update x ({ Update.offset = offset; data = data } as update) =
-    let bps = x.boot.Boot_sector.bytes_per_sector in
+    let bps = x.t.boot.Boot_sector.bytes_per_sector in
     let sector_number = Int64.(div offset (of_int bps)) in
     let sector_offset = Int64.(sub offset (mul sector_number (of_int bps))) in
     let sector = Cstruct.create 512 in
@@ -60,26 +80,20 @@ module Make = functor(B: BLOCK_DEVICE) -> struct
     return ()
 
   let make device size =
-    let boot = Boot_sector.make size in
-    ( match Boot_sector.detect_format boot with
+    ( match make size with
       | `Ok x -> return x
-      | `Error x -> fail x ) >>= fun format ->
+      | `Error x -> fail x ) >>= fun t ->
 
     let sector = Cstruct.create 512 in
-    Boot_sector.marshal sector boot;
+    Boot_sector.marshal sector t.boot;
 
-    let fat = Entry.make boot format in
-    let fat_sectors = Boot_sector.sectors_of_fat boot in
-    let fat_writes = Update.(map (split (from_cstruct 0L fat) 512) fat_sectors 512) in
+    let fat_sectors = Boot_sector.sectors_of_fat t.boot in
+    let fat_writes = Update.(map (split (from_cstruct 0L t.fat) 512) fat_sectors 512) in
 
-    let root_sectors = Boot_sector.sectors_of_root_dir boot in
-    let root = Cstruct.create (List.length root_sectors * 512) in
-    for i = 0 to Cstruct.len root - 1 do
-      Cstruct.set_uint8 root i 0
-    done;
-    let root_writes = Update.(map (split (from_cstruct 0L root) 512) root_sectors 512) in 
+    let root_sectors = Boot_sector.sectors_of_root_dir t.boot in
+    let root_writes = Update.(map (split (from_cstruct 0L t.root) 512) root_sectors 512) in 
 
-    let x = { device; boot = boot; format = format; fat = fat; root = root } in
+    let x = { device; t } in
     write_update x (Update.from_cstruct 0L sector) >>= fun () ->
     Lwt_list.iter_s (write_update x) fat_writes >>= fun () ->
     Lwt_list.iter_s (write_update x) root_writes >>= fun () ->
@@ -96,7 +110,8 @@ module Make = functor(B: BLOCK_DEVICE) -> struct
       | `Error x -> fail x ) >>= fun format ->
     read_sectors device (Boot_sector.sectors_of_fat boot) >>= fun fat ->
     read_sectors device (Boot_sector.sectors_of_root_dir boot) >>= fun root ->
-    return { device; boot; format; fat; root }
+    let t = { boot; format; fat; root } in
+    return { device; t }
 
   type file = Path.t
   let file_of_path fs x = x
@@ -105,11 +120,11 @@ module Make = functor(B: BLOCK_DEVICE) -> struct
     | Dir of Name.r list
     | File of Name.r
 
-  let sectors_of_file x { Name.start_cluster = cluster; file_size = file_size; subdir = subdir } =
-    Entry.Chain.(to_sectors x.boot (follow x.format x.fat cluster))
+  let sectors_of_file t { Name.start_cluster = cluster; file_size = file_size; subdir = subdir } =
+    Entry.Chain.(to_sectors t.boot (follow t.format t.fat cluster))
 
   let read_whole_file x { Name.dos = _, ({ Name.file_size = file_size; subdir = subdir } as f) } =
-    read_sectors x.device (sectors_of_file x f)
+    read_sectors x.device (sectors_of_file x.t f)
 
   (** [find x path] returns a [find_result] corresponding to the object
       stored at [path] *)
@@ -139,7 +154,7 @@ module Make = functor(B: BLOCK_DEVICE) -> struct
       | None, _ ->
         return (`Error(Error.No_directory_entry (Path.of_string_list (List.rev sofar), p)))
       end in
-    inner [] (Dir (Name.list x.root)) (Path.to_string_list path)
+    inner [] (Dir (Name.list x.t.root)) (Path.to_string_list path)
 
   module Location = struct
     (* Files and directories are stored in a location *)
@@ -165,7 +180,7 @@ module Make = functor(B: BLOCK_DEVICE) -> struct
           | None -> assert false
           | Some f ->
             let start_cluster = (snd f.Name.dos).Name.start_cluster in
-            return (Some(Entry.Chain.follow x.format x.fat start_cluster))
+            return (Some(Entry.Chain.follow x.t.format x.t.fat start_cluster))
           end
         | _ -> return None
 
@@ -176,8 +191,8 @@ module Make = functor(B: BLOCK_DEVICE) -> struct
       | Some c -> return (Chain c)
 
     let to_sectors x = function
-      | Chain clusters -> Entry.Chain.to_sectors x.boot clusters
-      | Rootdir -> Boot_sector.sectors_of_root_dir x.boot
+      | Chain clusters -> Entry.Chain.to_sectors x.t.boot clusters
+      | Rootdir -> Boot_sector.sectors_of_root_dir x.t.boot
 
   end
 
@@ -192,8 +207,8 @@ module Make = functor(B: BLOCK_DEVICE) -> struct
       stored at [location]. If [location] is a chain of clusters then
       it will be extended. *)
   let rec write_to_location x path location update : unit Lwt.t =
-    let bps = x.boot.Boot_sector.bytes_per_sector in
-    let spc = x.boot.Boot_sector.sectors_per_cluster in
+    let bps = x.t.boot.Boot_sector.bytes_per_sector in
+    let spc = x.t.boot.Boot_sector.sectors_per_cluster in
     let updates = Update.split update bps in
 
     let sectors = Location.to_sectors x location in
@@ -210,16 +225,16 @@ module Make = functor(B: BLOCK_DEVICE) -> struct
       | (Location.Rootdir | Location.Chain _), false ->
 	let writes = Update.map updates sectors bps in
         Lwt_list.iter_s (write_update x) writes >>= fun () ->
-	if location = Location.Rootdir then Update.apply x.root update;
+	if location = Location.Rootdir then Update.apply x.t.root update;
 	return location
       | Location.Chain cs, true ->
 	let last = if cs = [] then None else Some (List.hd (List.rev cs)) in
-	let new_clusters = Entry.Chain.extend x.boot x.format x.fat last clusters_needed in
-	let fat_sectors = Boot_sector.sectors_of_fat x.boot in
-	let new_sectors = Entry.Chain.to_sectors x.boot new_clusters in
+	let new_clusters = Entry.Chain.extend x.t.boot x.t.format x.t.fat last clusters_needed in
+	let fat_sectors = Boot_sector.sectors_of_fat x.t.boot in
+	let new_sectors = Entry.Chain.to_sectors x.t.boot new_clusters in
 	let data_writes = Update.map updates (sectors @ new_sectors) bps in
         Lwt_list.iter_s (write_update x) data_writes >>= fun () ->
-        let fat_writes = Update.(map (split (from_cstruct 0L x.fat) bps) fat_sectors bps) in
+        let fat_writes = Update.(map (split (from_cstruct 0L x.t.fat) bps) fat_sectors bps) in
         Lwt_list.iter_s (write_update x) fat_writes >>= fun () ->
         return (Location.Chain (cs @ new_clusters)))  >>= fun location ->
     match location with
@@ -331,8 +346,8 @@ module Make = functor(B: BLOCK_DEVICE) -> struct
 	      end
 
   let read_file x { Name.dos = _, ({ Name.file_size = file_size } as f) } the_start length =
-    let bps = x.boot.Boot_sector.bytes_per_sector in
-    let the_file = SectorMap.make (sectors_of_file x f) in
+    let bps = x.t.boot.Boot_sector.bytes_per_sector in
+    let the_file = SectorMap.make (sectors_of_file x.t f) in
     (* If the file is small, truncate length *)
     let length = min length (Int32.to_int file_size - the_start) in
     let preceeding, requested, succeeding = SectorMap.byte_range bps the_start length in
