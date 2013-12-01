@@ -40,11 +40,15 @@ let make size =
   let x = { boot = boot; format = format; fat = fat; root = root } in
   `Ok x
 
-module Make = functor(B: BLOCK_DEVICE) -> struct
+module Make (B: BLOCK_DEVICE with type 'a io = 'a Lwt.t): (FS
+  with type block_device = B.device
+  and type 'a io = 'a Lwt.t) = struct
   type fs = {
     device: B.device;
     t: t;
   }
+
+  type 'a io = 'a Lwt.t
 
   type block_device = B.device
 
@@ -128,7 +132,7 @@ module Make = functor(B: BLOCK_DEVICE) -> struct
 
   (** [find x path] returns a [find_result] corresponding to the object
       stored at [path] *)
-  let find x path : [ `Ok of find | `Error of Error.t ] Lwt.t =
+  let find x path : [ `Ok of find | `Error of Error.t ] io =
     let readdir = function
       | Dir ds -> return ds
       | File d ->
@@ -206,7 +210,7 @@ module Make = functor(B: BLOCK_DEVICE) -> struct
       to the data stored in the object at [path] which is currently
       stored at [location]. If [location] is a chain of clusters then
       it will be extended. *)
-  let rec write_to_location x path location update : unit Lwt.t =
+  let rec write_to_location x path location update : unit io =
     let bps = x.t.boot.Boot_sector.bytes_per_sector in
     let spc = x.t.boot.Boot_sector.sectors_per_cluster in
     let updates = Update.split update bps in
@@ -288,7 +292,7 @@ module Make = functor(B: BLOCK_DEVICE) -> struct
 
   (** [write x f offset buf] writes [buf] at [offset] in file [f] on
       filesystem [x] *)
-  let write x f offset buf : [ `Ok of unit | `Error of Error.t ] Lwt.t =
+  let write x f offset buf : [ `Ok of unit | `Error of Error.t ] io =
     wrap (fun () ->
       (* u is the update, in file co-ordinates *)
       let u = Update.from_cstruct (Int64.of_int offset) buf in
@@ -298,15 +302,15 @@ module Make = functor(B: BLOCK_DEVICE) -> struct
       write_to_location x f location u)
 
   (** [create x path] create a zero-length file at [path] *)
-  let create x path : [ `Ok of unit | `Error of Error.t ] Lwt.t =
+  let create x path : [ `Ok of unit | `Error of Error.t ] io =
     wrap (fun () -> create_common x path (Name.make (Path.filename path)))
 
   (** [mkdir x path] create an empty directory at [path] *)
-  let mkdir x path : [ `Ok of unit | `Error of Error.t ] Lwt.t =
+  let mkdir x path : [ `Ok of unit | `Error of Error.t ] io =
     wrap (fun () -> create_common x path (Name.make ~subdir:true (Path.filename path)))
 
   (** [destroy x path] deletes the entry at [path] *)
-  let destroy x path : [ `Ok of unit | `Error of Error.t ] Lwt.t =
+  let destroy x path : [ `Ok of unit | `Error of Error.t ] io =
     let filename = Path.filename path in
     let do_destroy () =
       update_directory_containing x path

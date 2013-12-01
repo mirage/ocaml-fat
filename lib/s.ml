@@ -16,6 +16,8 @@
 
 module type BLOCK_DEVICE = sig
 
+  type 'a io
+
   (** IO operation errors *)
   type error =
     | Unknown of string (** an undiagnosed error *)
@@ -35,19 +37,19 @@ module type BLOCK_DEVICE = sig
   val get_info: device -> info 
 
   (** Connect to a named block device *)
-  val connect: string -> [ `Error of error | `Ok of device ] Lwt.t
+  val connect: string -> [ `Error of error | `Ok of device ] io
 
   (** [read device sector_start buffers] returns a blocking IO operation which
       attempts to fill [buffers] with data starting at [sector_start].
       Each of [buffers] must be a whole number of sectors in length. *)
-  val read: device -> int64 -> Cstruct.t list -> [ `Error of error | `Ok of unit ] Lwt.t
+  val read: device -> int64 -> Cstruct.t list -> [ `Error of error | `Ok of unit ] io
 
   (** [write device sector_start buffers] returns a blocking IO operation which
       attempts to write the data contained within [buffers] to [t] starting
       at [sector_start]. If an error occurs then the write may have partially
       succeeded.
       Each of [buffers] must be a whole number of sectors in length. *)
-  val write: device -> int64 -> Cstruct.t list -> [ `Error of error | `Ok of unit ] Lwt.t
+  val write: device -> int64 -> Cstruct.t list -> [ `Error of error | `Ok of unit ] io
 end
 
 module Error = struct
@@ -88,32 +90,34 @@ module type FS = sig
 
   type block_device
 
-  val make: block_device -> int64 -> fs Lwt.t
+  type 'a io
+
+  val make: block_device -> int64 -> fs io
   (** [make size] creates a filesystem of size [size] *)
 
-  val openfile: block_device -> fs Lwt.t
+  val openfile: block_device -> fs io
 
   type file
 
-  val create: fs -> Path.t -> [ `Ok of unit | `Error of Error.t ] Lwt.t
+  val create: fs -> Path.t -> [ `Ok of unit | `Error of Error.t ] io
 
-  val mkdir: fs -> Path.t -> [ `Ok of unit | `Error of Error.t ] Lwt.t
+  val mkdir: fs -> Path.t -> [ `Ok of unit | `Error of Error.t ] io
 
-  val destroy: fs -> Path.t -> [ `Ok of unit | `Error of Error.t ] Lwt.t
+  val destroy: fs -> Path.t -> [ `Ok of unit | `Error of Error.t ] io
   (** [destroy fs path] removes a [path] on filesystem [fs] *)
 
   val file_of_path: fs -> Path.t -> file
   (** [file_of_path fs path] returns a [file] corresponding to [path] on
        filesystem [fs] *)
 
-  val stat: fs -> Path.t -> [ `Ok of Stat.t | `Error of Error.t ] Lwt.t
+  val stat: fs -> Path.t -> [ `Ok of Stat.t | `Error of Error.t ] io
   (** [stat fs f] returns information about file [f] on filesystem [fs] *)
 
-  val write: fs -> file -> int -> Cstruct.t -> [ `Ok of unit | `Error of Error.t ] Lwt.t
+  val write: fs -> file -> int -> Cstruct.t -> [ `Ok of unit | `Error of Error.t ] io
   (** [write fs f offset data] writes [data] at [offset] in file [f] on
       filesystem [fs] *)
 
-  val read: fs -> file -> int -> int -> [ `Ok of Cstruct.t list | `Error of Error.t ] Lwt.t
+  val read: fs -> file -> int -> int -> [ `Ok of Cstruct.t list | `Error of Error.t ] io
   (** [read fs f offset length] reads up to [length] bytes from file [f] on
       filesystem [fs]. If less data is returned than requested, this indicates
       end-of-file. *)

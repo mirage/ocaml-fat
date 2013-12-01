@@ -15,3 +15,4 @@
  *)
 
 include S.BLOCK_DEVICE
+with type 'a io = 'a Lwt.t

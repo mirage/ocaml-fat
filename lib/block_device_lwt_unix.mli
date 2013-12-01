@@ -17,6 +17,7 @@
 (** Block device on top of Lwt_unix *)
 
 include S.BLOCK_DEVICE
+with type 'a io = 'a Lwt.t
 
 (** {0} low-level convenience functions *)
 

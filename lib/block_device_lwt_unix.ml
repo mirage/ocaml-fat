@@ -16,7 +16,7 @@
 
 (* Block device based on Lwt_unix *)
 
-type 'a t = 'a Lwt.t
+type 'a io = 'a Lwt.t
 let ( >>= ) = Lwt.( >>= )
 let return = Lwt.return
 

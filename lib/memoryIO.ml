@@ -16,6 +16,8 @@
 
 open Lwt
 
+type 'a io = 'a Lwt.t
+
 (* NB not actually page-aligned *)
 type page_aligned_buffer = Cstruct.t
 
