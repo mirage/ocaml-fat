@@ -105,12 +105,8 @@ module Make = functor(B: BLOCK_DEVICE) -> struct
     | Dir of Name.r list
     | File of Name.r
 
-  let sectors_of_chain x chain =
-    List.concat (List.map (Boot_sector.sectors_of_cluster x.boot) chain)
-       
   let sectors_of_file x { Name.start_cluster = cluster; file_size = file_size; subdir = subdir } =
-    let chain = Entry.follow_chain x.format x.fat cluster in
-    sectors_of_chain x chain
+    Entry.Chain.(to_sectors x.boot (follow x.format x.fat cluster))
 
   let read_whole_file x { Name.dos = _, ({ Name.file_size = file_size; subdir = subdir } as f) } =
     read_sectors x.device (sectors_of_file x f)
@@ -169,7 +165,7 @@ module Make = functor(B: BLOCK_DEVICE) -> struct
           | None -> assert false
           | Some f ->
             let start_cluster = (snd f.Name.dos).Name.start_cluster in
-            return (Some(Entry.follow_chain x.format x.fat start_cluster))
+            return (Some(Entry.Chain.follow x.format x.fat start_cluster))
           end
         | _ -> return None
 
@@ -180,7 +176,7 @@ module Make = functor(B: BLOCK_DEVICE) -> struct
       | Some c -> return (Chain c)
 
     let to_sectors x = function
-      | Chain clusters -> sectors_of_chain x clusters
+      | Chain clusters -> Entry.Chain.to_sectors x.boot clusters
       | Rootdir -> Boot_sector.sectors_of_root_dir x.boot
 
   end
@@ -218,9 +214,9 @@ module Make = functor(B: BLOCK_DEVICE) -> struct
 	return location
       | Location.Chain cs, true ->
 	let last = if cs = [] then None else Some (List.hd (List.rev cs)) in
-	let new_clusters = Entry.extend x.boot x.format x.fat last clusters_needed in
+	let new_clusters = Entry.Chain.extend x.boot x.format x.fat last clusters_needed in
 	let fat_sectors = Boot_sector.sectors_of_fat x.boot in
-	let new_sectors = sectors_of_chain x new_clusters in
+	let new_sectors = Entry.Chain.to_sectors x.boot new_clusters in
 	let data_writes = Update.map updates (sectors @ new_sectors) bps in
         Lwt_list.iter_s (write_update x) data_writes >>= fun () ->
         let fat_writes = Update.(map (split (from_cstruct 0L x.fat) bps) fat_sectors bps) in
