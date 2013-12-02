@@ -16,6 +16,8 @@
 
 open Lwt
 
+type 'a io = 'a Lwt.t
+
 (* NB not actually page-aligned *)
 type page_aligned_buffer = Cstruct.t
 
@@ -25,6 +27,7 @@ type error =
 | Unknown of string
 | Unimplemented
 | Is_read_only
+| Disconnected
 
 type info = {
   read_write: bool;
@@ -34,14 +37,14 @@ type info = {
 
 module Int64Map = Map.Make(Int64)
 
-type device = {
+type t = {
   mutable map: page_aligned_buffer Int64Map.t;
   info: info;
 }
 
 let devices = Hashtbl.create 1
 
-let get_info { info } = info
+let get_info { info } = return info
 
 let connect name =
   if Hashtbl.mem devices name
@@ -56,6 +59,10 @@ let connect name =
     let device = { map; info } in
     Hashtbl.replace devices name device;
     return (`Ok device)
+
+let disconnect t =
+  t.map <- Int64Map.empty;
+  return ()
 
 let rec read x sector_start buffers = match buffers with
   | [] -> return (`Ok ())

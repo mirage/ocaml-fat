@@ -17,8 +17,8 @@
 open OUnit
 open Lwt
 open Fat
-open Block_device_lwt_unix
 open S
+open Mirage_block.Block
 
 let read_sector filename =
   Lwt_unix.openfile filename [ Lwt_unix.O_RDONLY ] 0o0 >>= fun fd ->
@@ -107,12 +107,12 @@ let test_chains () =
     let expected = [0; 0; 0; 2235; 3] in
     let actual = List.map (fun x -> (snd (x.Name.dos)).Name.start_cluster) all in
     assert_equal ~printer:print_int_list expected actual; 
-    assert_equal ~printer:print_int_list [] (Entry.follow_chain Fat_format.FAT16 fat 0);
+    assert_equal ~printer:print_int_list [] (Entry.Chain.follow Fat_format.FAT16 fat 0);
 
-    assert_equal ~printer:print_int_list [2235] (Entry.follow_chain Fat_format.FAT16 fat 2235);
+    assert_equal ~printer:print_int_list [2235] (Entry.Chain.follow Fat_format.FAT16 fat 2235);
     let rec ints last x = if x = last then [x] else x :: (ints last (x + 1)) in
     let expected = ints 2234 3 in
-    assert_equal ~printer:print_int_list expected (Entry.follow_chain Fat_format.FAT16 fat 3);
+    assert_equal ~printer:print_int_list expected (Entry.Chain.follow Fat_format.FAT16 fat 3);
     return () in
   Lwt_main.run t
 

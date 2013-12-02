@@ -104,27 +104,6 @@ let make boot_sector format =
   done;
   buf
 
-
-module IntSet = Set.Make(struct type t = int let compare = compare end)
-
-(** [follow_chain format fat cluster] returns the list of sectors containing
-    data according to FAT [fat] which is of type [format]. *)
-let follow_chain format fat cluster =
-  (* the elements will be returned in order as 'list'; 'set' is used to
-     check that we aren't going round in an infinite loop. *)
-  let rec inner (list, set) = function
-    | 0 -> list (* either zero-length chain if list = [] or corrupt file *)
-    | 1 -> list (* corrupt file *)
-    | i -> begin match unmarshal format i fat with
-      | End -> i :: list
-      | Free | Bad -> list (* corrupt file *)
-      | Used j ->
-        if IntSet.mem i set
-        then list (* infinite loop: corrupt file *)
-        else inner (i :: list, IntSet.add i set) j
-      end in
-  List.rev (inner ([], IntSet.empty) cluster)
-
 let initial = 2 (* first valid entry *)
 
 (** [find_free_from boot format fat start] returns an unallocated cluster
@@ -138,30 +117,55 @@ let find_free_from boot format fat start =
     | _ -> inner (i + 1) in
   inner start
 
-(** [extend boot format fat last n] allocates [n] free clusters to extend
-    the chain whose current end is [last] *)
-let extend boot format fat (last: int option) n =
-  let rec inner acc start = function
-    | 0 -> acc (* in reverse disk order *)
-    | i ->
-      match find_free_from boot format fat start with
-      | None -> acc (* out of space *)
-      | Some c -> inner (c :: acc) (c + 1) (i - 1) in
-  let to_allocate = inner [] (match last with None -> initial | Some x -> x) n in
-  if n = 0
-  then []
-  else
-    if List.length to_allocate <> n
-    then [] (* allocation failed *)
+module Chain = struct
+  module IntSet = Set.Make(struct type t = int let compare = compare end)
+
+  type t = int list
+
+  let follow format fat cluster =
+    (* the elements will be returned in order as 'list'; 'set' is used to
+       check that we aren't going round in an infinite loop. *)
+    let rec inner (list, set) = function
+      | 0 -> list (* either zero-length chain if list = [] or corrupt file *)
+      | 1 -> list (* corrupt file *)
+      | i -> begin match unmarshal format i fat with
+        | End -> i :: list
+        | Free | Bad -> list (* corrupt file *)
+        | Used j ->
+          if IntSet.mem i set
+          then list (* infinite loop: corrupt file *)
+          else inner (i :: list, IntSet.add i set) j
+        end in
+    List.rev (inner ([], IntSet.empty) cluster)
+
+  (** [extend boot format fat last n] allocates [n] free clusters to extend
+      the chain whose current end is [last] *)
+  let extend boot format fat (last: int option) n =
+    let rec inner acc start = function
+      | 0 -> acc (* in reverse disk order *)
+      | i ->
+        match find_free_from boot format fat start with
+        | None -> acc (* out of space *)
+        | Some c -> inner (c :: acc) (c + 1) (i - 1) in
+    let to_allocate = inner [] (match last with None -> initial | Some x -> x) n in
+    if n = 0
+    then []
     else
-      let final = List.hd to_allocate in
-      let to_allocate = List.rev to_allocate in
-      ignore(List.fold_left (fun last next ->
-        (match last with
-         | Some last ->
-            marshal format last fat (Used next)
-         | None -> ());
-        Some next
-      ) last to_allocate);
-      marshal format final fat End;
-      to_allocate
+      if List.length to_allocate <> n
+      then [] (* allocation failed *)
+      else
+        let final = List.hd to_allocate in
+        let to_allocate = List.rev to_allocate in
+        ignore(List.fold_left (fun last next ->
+          (match last with
+           | Some last ->
+              marshal format last fat (Used next)
+           | None -> ());
+          Some next
+        ) last to_allocate);
+        marshal format final fat End;
+        to_allocate
+
+  let to_sectors boot clusters =
+    List.concat (List.map (Boot_sector.sectors_of_cluster boot) clusters)
+end

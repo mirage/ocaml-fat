@@ -29,23 +29,32 @@ val make: Boot_sector.t -> Fat_format.t -> Cstruct.t
 (** [make boot_sector format] creates an empty FAT given the parameters
     in [boot_sector] and the [format] *)
 
+(** [find_free_from boot format fat start] returns an unallocated cluster
+    after [start] *)
+val find_free_from: Boot_sector.t -> Fat_format.t -> fat -> int -> int option
+
+(** first valid entry *)
+val initial: int
+
 (** [unmarshal format n fat] return the [n]th [fat] entry in [format] *)
 val unmarshal: Fat_format.t -> int -> fat -> t
 
 (** [marhsal format n fat v] update the [n]th [fat] entry in [format] with [v] *)
 val marshal: Fat_format.t -> int -> fat -> t -> unit
 
-(** [follow_chain format fat cluster] returns the list of sectors containing
-    data according to FAT [fat] which is of type [format]. *)
-val follow_chain: Fat_format.t -> fat -> int -> int list
+module Chain : sig
 
-(** first valid entry *)
-val initial: int
+  type t = int list
+  (** A sequence of clusters containing file data *)
 
-(** [find_free_from boot format fat start] returns an unallocated cluster
-    after [start] *)
-val find_free_from: Boot_sector.t -> Fat_format.t -> fat -> int -> int option
+  (** [follow_chain format fat cluster] returns the list of sectors containing
+      data according to FAT [fat] which is of type [format]. *)
+  val follow: Fat_format.t -> fat -> int -> t
 
-(** [extend boot format fat last n] allocates [n] free clusters to extend
-    the chain whose current end is [last] *)
-val extend: Boot_sector.t -> Fat_format.t -> fat -> int option -> int -> int list
+  (** [extend boot format fat last n] allocates [n] free clusters to extend
+      the chain whose current end is [last] *)
+  val extend: Boot_sector.t -> Fat_format.t -> fat -> int option -> int -> t
+
+  val to_sectors: Boot_sector.t -> t -> int list
+  (** [to_sectors boot t] converts the chain [t] into a sequence of sectors *)
+end

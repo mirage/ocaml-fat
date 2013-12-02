@@ -3,9 +3,8 @@ open Lwt
 open Fat
 open S
 
-module Block = Block_device_lwt_unix
+module Block = Mirage_block.Block
 module Test = Fs.Make(Block)
-module Check_signature = (Test: FS)
 
 let with_file flags filename f =
   Lwt_unix.openfile filename flags 0o0 >>= fun file ->
