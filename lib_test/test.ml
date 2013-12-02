@@ -17,8 +17,8 @@
 open OUnit
 open Lwt
 open Fat
-open Block_device_lwt_unix
 open S
+open Mirage_block.Block
 
 let read_sector filename =
   Lwt_unix.openfile filename [ Lwt_unix.O_RDONLY ] 0o0 >>= fun fd ->

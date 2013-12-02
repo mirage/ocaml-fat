@@ -27,6 +27,7 @@ type error =
 | Unknown of string
 | Unimplemented
 | Is_read_only
+| Disconnected
 
 type info = {
   read_write: bool;
@@ -58,6 +59,10 @@ let connect name =
     let device = { map; info } in
     Hashtbl.replace devices name device;
     return (`Ok device)
+
+let disconnect t =
+  t.map <- Int64Map.empty;
+  return ()
 
 let rec read x sector_start buffers = match buffers with
   | [] -> return (`Ok ())

@@ -13,15 +13,7 @@ Library fat
   Path:               lib
   Findlibname:        fat-format
   Modules:            Fat_format, Boot_sector, Entry, Name, Path, Fs, Update, SectorMap, Result, MemoryIO, S
-  BuildDepends:       cstruct, re, re.str
-
-Library fat_lwt
-  CompiledObject:     best
-  Path:               lib
-  Findlibname:        lwt
-  Findlibparent:      fat
-  Modules:            Block_device_lwt_unix
-  BuildDepends:       lwt, lwt.unix, cstruct.lwt
+  BuildDepends:       cstruct, re, re.str, mirage-types, lwt
 
 Executable shell
   CompiledObject:     best
@@ -29,7 +21,7 @@ Executable shell
   MainIs:             main.ml
   Custom:             true
   Install:            false
-  BuildDepends:       fat-format, fat-format.lwt
+  BuildDepends:       fat-format, mirage-block
 
 Executable test
   CompiledObject:     best
@@ -37,7 +29,7 @@ Executable test
   MainIs:             test.ml
   Custom:             true
   Install:            false
-  BuildDepends:       lwt, lwt.unix, fat-format, fat-format.lwt, cstruct, oUnit
+  BuildDepends:       lwt, lwt.unix, fat-format, cstruct, oUnit, mirage-block
 
 Test test
   Command:            ./test.native

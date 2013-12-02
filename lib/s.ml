@@ -14,49 +14,9 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-module type BLOCK_DEVICE = sig
-
-  (** Abstract type of a block device instance. *)
-  type t
-
-  (** Abstract type for a blocking IO operation *)
-  type 'a io
-
-  (** Abstract type for a page-aligned memory buffer *)
-  type page_aligned_buffer
-
-  (** IO operation errors *)
-  type error =
-    | Unknown of string (** an undiagnosed error *)
-    | Unimplemented     (** operation not yet implemented in the code *)
-    | Is_read_only      (** you cannot write to a read/only instance *)
-
-  (** Characteristics of the block device. Note some devices may be able
-      to make themselves bigger over time. *)
-  type info = {
-    read_write: bool;    (** True if we can write, false if read/only *)
-    sector_size: int;    (** Octets per sector *)
-    size_sectors: int64; (** Total sectors per device *)
-  }
-
-  (** Connect to a named block device *)
-  val connect: string -> [ `Error of error | `Ok of t ] io
-
-  (** Query the characteristics of a specific block device *)
-  val get_info: t -> info io
-
-  (** [read device sector_start buffers] returns a blocking IO operation which
-      attempts to fill [buffers] with data starting at [sector_start].
-      Each of [buffers] must be a whole number of sectors in length. *)
-  val read: t -> int64 -> page_aligned_buffer list -> [ `Error of error | `Ok of unit ] io
-
-  (** [write device sector_start buffers] returns a blocking IO operation which
-      attempts to write the data contained within [buffers] to [t] starting
-      at [sector_start]. If an error occurs then the write may have partially
-      succeeded.
-      Each of [buffers] must be a whole number of sectors in length. *)
-  val write: t -> int64 -> page_aligned_buffer list -> [ `Error of error | `Ok of unit ] io
-end
+module type BLOCK_DEVICE = V1.BLOCK_DEVICE
+with type page_aligned_buffer = Cstruct.t
+and type 'a io = 'a Lwt.t
 
 module Error = struct
   type t =

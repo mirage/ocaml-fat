@@ -3,7 +3,7 @@ open Lwt
 open Fat
 open S
 
-module Block = Block_device_lwt_unix
+module Block = Mirage_block.Block
 module Test = Fs.Make(Block)
 
 let with_file flags filename f =
