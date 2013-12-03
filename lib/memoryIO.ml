@@ -18,16 +18,18 @@ open Lwt
 
 type 'a io = 'a Lwt.t
 
+type id = string
+
 (* NB not actually page-aligned *)
 type page_aligned_buffer = Cstruct.t
 
 let alloc = Cstruct.create
 
-type error =
-| Unknown of string
-| Unimplemented
-| Is_read_only
-| Disconnected
+type error = [
+| `Unknown of string
+| `Unimplemented
+| `Is_read_only
+| `Disconnected ]
 
 type info = {
   read_write: bool;
