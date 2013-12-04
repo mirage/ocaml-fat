@@ -45,7 +45,9 @@ module Make (B: BLOCK_DEVICE
   and type page_aligned_buffer = Cstruct.t
 ): (FS
   with type block_device = B.t
-  and type 'a io = 'a Lwt.t) = struct
+  and type 'a io = 'a Lwt.t
+  and type block_device_error = B.error
+) = struct
   type fs = {
     device: B.t;
     t: t;
@@ -54,6 +56,8 @@ module Make (B: BLOCK_DEVICE
   type 'a io = 'a Lwt.t
 
   type block_device = B.t
+
+  type block_device_error = B.error
 
   exception Block_device_error of B.error
 

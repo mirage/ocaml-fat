@@ -48,8 +48,17 @@ let create common filename size =
     Filesystem.make device size >>= fun _ ->
     if common.verb then Printf.printf "Filesystem of size %Ld created\n%!" size;
     return () in
-  Lwt_main.run t;
-  `Ok ()
+  try
+    Lwt_main.run t;
+    `Ok ()
+  with Filesystem.Block_device_error `Is_read_only ->
+    `Error(false, "File is read only")
+  | Filesystem.Block_device_error `Unimplemented ->
+    `Error(false, "Block operation is unimplemented")
+  | Filesystem.Block_device_error (`Unknown x) ->
+    `Error(false, x)
+  | Filesystem.Block_device_error _ ->
+    `Error(false, "Unknown block device error")
 
 let add common filename files =
   Printf.fprintf stderr "add %s <- [ %s ]\n%!" filename (String.concat "; " files);

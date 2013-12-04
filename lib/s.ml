@@ -58,6 +58,10 @@ module type FS = sig
 
   type 'a io
 
+  type block_device_error
+
+  exception Block_device_error of block_device_error
+
   val make: block_device -> int64 -> fs io
   (** [make size] creates a filesystem of size [size] *)
 
