@@ -13,11 +13,42 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
+open Lwt
+open Fat
+open S
 
+module Block = Mirage_block.Block
+module Filesystem = Fs.Make(Block)
 open Common
 
+exception Block_error of Block.error
+
+let (>>|=) m f = m >>= function
+  | `Error e -> fail (Block_error e)
+  | `Ok x -> f x
+
 let create common filename size =
-  Printf.fprintf stderr "create %s %Ld\n%!" filename size;
+  let t =
+    ( if Sys.file_exists filename
+      then fail (Failure (Printf.sprintf "%s already exists" filename))
+      else return () ) >>= fun () ->
+    Lwt_unix.openfile filename [ Unix.O_CREAT; Unix.O_RDWR ] 0o0644 >>= fun fd ->
+
+    Lwt_unix.LargeFile.lseek fd Int64.(sub size 512L) Lwt_unix.SEEK_CUR >>= fun _ ->
+    let message = "All work and no play makes Dave a dull boy.\n" in
+    let sector = Mirage_block.Block.Memory.alloc 512 in
+    for i = 0 to 511 do
+      Cstruct.set_char sector i (message.[i mod (String.length message)])
+    done;
+    Block.really_write fd sector >>= fun () ->
+    Lwt_unix.close fd >>= fun () ->
+
+    Block.connect filename >>|= fun device ->
+    if common.verb then Printf.printf "Created %s\n%!" filename;
+    Filesystem.make device size >>= fun _ ->
+    if common.verb then Printf.printf "Filesystem of size %Ld created\n%!" size;
+    return () in
+  Lwt_main.run t;
   `Ok ()
 
 let add common filename files =
