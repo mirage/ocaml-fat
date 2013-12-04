@@ -20,9 +20,13 @@ open Fat
 open S
 open Mirage_block.Block
 
+let alloc bytes =
+  let pages = Io_page.(to_cstruct (get ((bytes + 4095) / 4096))) in
+  Cstruct.sub pages 0 bytes
+
 let read_sector filename =
   Lwt_unix.openfile filename [ Lwt_unix.O_RDONLY ] 0o0 >>= fun fd ->
-  let buf = Cstruct.create 512 in
+  let buf = alloc 512 in
   really_read fd buf >>= fun () ->
   Lwt_unix.close fd >>= fun () ->
   return buf
@@ -30,7 +34,7 @@ let read_sector filename =
 let read_whole_file filename =
   Lwt_unix.openfile filename [ Lwt_unix.O_RDONLY ] 0o0 >>= fun fd ->
   let size = (Unix.stat filename).Unix.st_size in
-  let buf = Cstruct.create size in
+  let buf = alloc size in
   really_read fd buf >>= fun () ->
   Lwt_unix.close fd >>= fun () ->
   return buf
@@ -138,7 +142,7 @@ let test_parse_boot_sector () =
       assert_equal ~printer:print_int_list sectors_of_fat (Boot_sector.sectors_of_fat x);
       assert_equal ~printer:print_int_list sectors_of_root_dir (Boot_sector.sectors_of_root_dir x) in
     check x;
-    let buf = Cstruct.create sizeof in
+    let buf = alloc sizeof in
     marshal buf x;
     let x = match unmarshal buf with
     | `Error x -> failwith x
@@ -147,7 +151,7 @@ let test_parse_boot_sector () =
     return () in
   Lwt_main.run t
 
-module MemFS = Fs.Make(MemoryIO)
+module MemFS = Fs.Make(MemoryIO)(Io_page)
 
 let kib = 1024L
 let mib = Int64.mul kib 1024L
@@ -189,7 +193,7 @@ let make_pattern tag length =
   (* if the tag is smaller than length then truncate it *)
   let tag = if String.length tag > length then String.sub tag 0 length else tag in
   assert (String.length tag <= length);
-  let buffer = Cstruct.create length in
+  let buffer = alloc length in
   Cstruct.blit_from_string tag 0 buffer 0 (String.length tag);
   for i = String.length tag to Cstruct.len buffer - 1 do
     Cstruct.set_char buffer i tag.[i mod (String.length tag)]

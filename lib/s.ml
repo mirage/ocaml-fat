@@ -18,6 +18,8 @@ module type BLOCK_DEVICE = V1.BLOCK.CLIENT
 with type page_aligned_buffer = Cstruct.t
 and type 'a io = 'a Lwt.t
 
+module type IO_PAGE = V1.IO_PAGE
+
 module Error = struct
   type t =
     | Not_a_directory of Path.t

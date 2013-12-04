@@ -4,7 +4,7 @@ open Fat
 open S
 
 module Block = Mirage_block.Block
-module Test = Fs.Make(Block)
+module Test = Fs.Make(Block)(Io_page)
 
 let with_file flags filename f =
   Lwt_unix.openfile filename flags 0o0 >>= fun file ->

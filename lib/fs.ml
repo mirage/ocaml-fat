@@ -24,26 +24,10 @@ type t = {
   root: Cstruct.t;
 }
 
-let make size =
-  let open Result in
-  let boot = Boot_sector.make size in
-  Boot_sector.detect_format boot >>= fun format ->
-
-  let fat = Entry.make boot format in
-
-  let root_sectors = Boot_sector.sectors_of_root_dir boot in
-  let root = Cstruct.create (List.length root_sectors * 512) in
-  for i = 0 to Cstruct.len root - 1 do
-    Cstruct.set_uint8 root i 0
-  done;
-
-  let x = { boot = boot; format = format; fat = fat; root = root } in
-  `Ok x
-
 module Make (B: BLOCK_DEVICE
   with type 'a io = 'a Lwt.t
-  and type page_aligned_buffer = Cstruct.t
-): (FS
+  and type page_aligned_buffer = Cstruct.t)(M: IO_PAGE
+  with type buf = Cstruct.t): (FS
   with type block_device = B.t
   and type 'a io = 'a Lwt.t
   and type block_device_error = B.error
@@ -65,8 +49,12 @@ module Make (B: BLOCK_DEVICE
   | `Error e -> fail (Block_device_error e)
   | `Ok x -> f x
 
+  let alloc bytes =
+    let pages = M.(to_cstruct (get ((bytes + 4095) / 4096))) in
+    Cstruct.sub pages 0 bytes
+
   let read_sectors device xs =
-    let buf = Cstruct.create (List.length xs * 512) in
+    let buf = alloc (List.length xs * 512) in
     let rec split buf =
       if Cstruct.len buf = 0 then []
       else if Cstruct.len buf <= 512 then [ buf ]
@@ -84,18 +72,33 @@ module Make (B: BLOCK_DEVICE
     let bps = x.t.boot.Boot_sector.bytes_per_sector in
     let sector_number = Int64.(div offset (of_int bps)) in
     let sector_offset = Int64.(sub offset (mul sector_number (of_int bps))) in
-    let sector = Cstruct.create 512 in
+    let sector = alloc 512 in
     B.read x.device sector_number [ sector ] >>|= fun () ->
     Update.apply sector { update with Update.offset = sector_offset };
     B.write x.device sector_number [ sector ] >>|= fun () ->
     return ()
+
+let make size =
+  let open Result in
+  let boot = Boot_sector.make size in
+  Boot_sector.detect_format boot >>= fun format ->
+
+  let fat = Entry.make boot format in
+
+  let root_sectors = Boot_sector.sectors_of_root_dir boot in
+  let root = alloc (List.length root_sectors * 512) in
+  for i = 0 to Cstruct.len root - 1 do
+    Cstruct.set_uint8 root i 0
+  done;
+  let x = { boot = boot; format = format; fat = fat; root = root } in
+  `Ok x
 
   let make device size =
     ( match make size with
       | `Ok x -> return x
       | `Error x -> fail x ) >>= fun t ->
 
-    let sector = Cstruct.create 512 in
+    let sector = alloc 512 in
     Boot_sector.marshal sector t.boot;
 
     let fat_sectors = Boot_sector.sectors_of_fat t.boot in
@@ -105,13 +108,17 @@ module Make (B: BLOCK_DEVICE
     let root_writes = Update.(map (split (from_cstruct 0L t.root) 512) root_sectors 512) in 
 
     let x = { device; t } in
+    Printf.fprintf stderr "write_update\n%!";
     write_update x (Update.from_cstruct 0L sector) >>= fun () ->
+    Printf.fprintf stderr "write_update\n%!";
     Lwt_list.iter_s (write_update x) fat_writes >>= fun () ->
+    Printf.fprintf stderr "write_update\n%!";
     Lwt_list.iter_s (write_update x) root_writes >>= fun () ->
+    Printf.fprintf stderr "write_update\n%!";
     return x
 
   let openfile device =
-    let sector = Cstruct.create 512 in
+    let sector = alloc 512 in
     B.read device 0L [ sector ] >>|= fun () ->
     ( match Boot_sector.unmarshal sector with
       | `Ok x -> return x

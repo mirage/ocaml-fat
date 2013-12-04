@@ -18,8 +18,9 @@ open Fat
 open S
 
 module Block = Mirage_block.Block
-module Filesystem = Fs.Make(Block)
+module Filesystem = Fs.Make(Block)(Io_page)
 open Common
+let f = Filesystem.openfile
 
 exception Block_error of Block.error
 
