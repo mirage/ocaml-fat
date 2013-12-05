@@ -51,9 +51,8 @@ module Make (B: BLOCK_DEVICE
     | `File_already_exists of string
     | `No_space
     | `Unknown_error of string
+    | `Block_device of block_device_error
   ]
-
-  exception Block_device_error of B.error
 
   type stat = {
     filename: string;
@@ -62,6 +61,7 @@ module Make (B: BLOCK_DEVICE
     size: int64;
   }
 
+  exception Block_device_error of B.error
   let (>>|=) m f = m >>= function
   | `Error e -> fail (Block_device_error e)
   | `Ok x -> f x
@@ -315,6 +315,7 @@ let make size =
       (fun () -> f () >>= fun x -> return (`Ok x))
       (function
        | Fs_error err -> return (`Error err)
+       | Block_device_error err -> return (`Error (`Block_device err))
        | e -> return (`Error (`Unknown_error (Printexc.to_string e)))) 
 
   (** [write x f offset buf] writes [buf] at [offset] in file [f] on

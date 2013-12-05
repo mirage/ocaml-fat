@@ -37,6 +37,8 @@ module Error = struct
       Printf.sprintf "No_space"
     | `Unknown_error x ->
       Printf.sprintf "Unknown_error: %s" x
+    | `Block_device _ ->
+      Printf.sprintf "Block device error"
 end
 
 module type FS = sig
@@ -56,8 +58,8 @@ module type FS = sig
     | `File_already_exists of string
     | `No_space
     | `Unknown_error of string
+    | `Block_device of block_device_error
   ]
-  exception Block_device_error of block_device_error
 
   type stat = {
     filename: string;

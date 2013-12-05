@@ -17,7 +17,8 @@ let (>>|=) m f = m >>= function
 | `Ok x -> f x
 
 let (>>>) m f = m >>= function
-| `Error e -> Printf.fprintf stderr "%s\n%!" (Error.to_string e); return ()
+| `Error (`Block_device e) -> fail (Block_error e)
+| `Error #Test.error -> fail (Failure "Filesystem error")
 | `Ok x -> f x
 
 let main filename create_size =
