@@ -108,13 +108,9 @@ let make size =
     let root_writes = Update.(map (split (from_cstruct 0L t.root) 512) root_sectors 512) in 
 
     let x = { device; t } in
-    Printf.fprintf stderr "write_update\n%!";
     write_update x (Update.from_cstruct 0L sector) >>= fun () ->
-    Printf.fprintf stderr "write_update\n%!";
     Lwt_list.iter_s (write_update x) fat_writes >>= fun () ->
-    Printf.fprintf stderr "write_update\n%!";
     Lwt_list.iter_s (write_update x) root_writes >>= fun () ->
-    Printf.fprintf stderr "write_update\n%!";
     return x
 
   let openfile device =

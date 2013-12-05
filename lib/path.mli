@@ -28,6 +28,8 @@ val to_string: t -> string
 
 val of_string: string -> t
 
+val concat: t -> string -> t
+
 val cd: t -> string -> t
 
 val is_root: t -> bool

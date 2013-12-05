@@ -27,5 +27,7 @@ let slash = Re_str.regexp_string "/"
 
 let of_string s = if s = "/" || s = "" then [] else of_string_list (Re_str.split slash s)
 
+let concat path x = x :: path
+
 let cd path x = of_string x @ (if x <> "" && x.[0] = '/' then [] else path)
 let is_root p = p = []
