@@ -15,13 +15,21 @@ Library fat
   Modules:            Fat_format, Boot_sector, Entry, Name, Path, Fs, Update, SectorMap, Result, MemoryIO, S
   BuildDepends:       cstruct, re, re.str, mirage-types, lwt
 
+Executable fat
+  CompiledObject:     best
+  Path:               fat
+  MainIs:             main.ml
+  Custom:             true
+  Install:            false
+  BuildDepends:       fat-filesystem, mirage-block, cmdliner, io-page-unix
+
 Executable shell
   CompiledObject:     best
   Path:               shell
   MainIs:             main.ml
   Custom:             true
   Install:            false
-  BuildDepends:       fat-filesystem, mirage-block
+  BuildDepends:       fat-filesystem, mirage-block, io-page-unix
 
 Executable test
   CompiledObject:     best
@@ -29,7 +37,7 @@ Executable test
   MainIs:             test.ml
   Custom:             true
   Install:            false
-  BuildDepends:       lwt, lwt.unix, fat-filesystem, cstruct, oUnit, mirage-block
+  BuildDepends:       lwt, lwt.unix, fat-filesystem, cstruct, oUnit, mirage-block, io-page-unix
 
 Test test
   Command:            ./test.native

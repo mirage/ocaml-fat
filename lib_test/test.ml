@@ -20,9 +20,13 @@ open Fat
 open S
 open Mirage_block.Block
 
+let alloc bytes =
+  let pages = Io_page.(to_cstruct (get ((bytes + 4095) / 4096))) in
+  Cstruct.sub pages 0 bytes
+
 let read_sector filename =
   Lwt_unix.openfile filename [ Lwt_unix.O_RDONLY ] 0o0 >>= fun fd ->
-  let buf = Cstruct.create 512 in
+  let buf = alloc 512 in
   really_read fd buf >>= fun () ->
   Lwt_unix.close fd >>= fun () ->
   return buf
@@ -30,7 +34,7 @@ let read_sector filename =
 let read_whole_file filename =
   Lwt_unix.openfile filename [ Lwt_unix.O_RDONLY ] 0o0 >>= fun fd ->
   let size = (Unix.stat filename).Unix.st_size in
-  let buf = Cstruct.create size in
+  let buf = alloc size in
   really_read fd buf >>= fun () ->
   Lwt_unix.close fd >>= fun () ->
   return buf
@@ -138,7 +142,7 @@ let test_parse_boot_sector () =
       assert_equal ~printer:print_int_list sectors_of_fat (Boot_sector.sectors_of_fat x);
       assert_equal ~printer:print_int_list sectors_of_root_dir (Boot_sector.sectors_of_root_dir x) in
     check x;
-    let buf = Cstruct.create sizeof in
+    let buf = alloc sizeof in
     marshal buf x;
     let x = match unmarshal buf with
     | `Error x -> failwith x
@@ -147,22 +151,37 @@ let test_parse_boot_sector () =
     return () in
   Lwt_main.run t
 
-module MemFS = Fs.Make(MemoryIO)
+module MemFS = Fs.Make(MemoryIO)(Io_page)
 
 let kib = 1024L
 let mib = Int64.mul kib 1024L
 
-let (>>|=) x f = x >>= function
+module BlockError = struct
+  let (>>=) x f = x >>= function
   | `Ok x -> f x
-  | `Error error -> fail (Failure "block device failure")
+  | `Error (`Unknown x) -> fail (Failure x)
+  | `Error `Unimplemented -> fail (Failure "unimplemented in block device")
+  | `Error `Is_read_only -> fail (Failure "block device is read-only")
+  | `Error `Disconnected -> fail (Failure "block device is disconnected")
+  | `Error _ -> fail (Failure "unknown block device failure")
+end
+
+module FsError = struct
+  let (>>=) x f = x >>= function
+    | `Ok x -> f x
+    | `Error error -> fail (Failure (Error.to_string error))
+end
 
 let test_create () =
   let t =
-    MemoryIO.connect "" >>|= fun device ->
+    let open BlockError in
+    MemoryIO.connect "" >>= fun device ->
+    let open Lwt in
     MemFS.make device (Int64.mul 16L mib) >>= fun fs ->
     let filename = "HELLO.TXT" in
-    MemFS.create fs (Path.of_string filename) >>|= fun () ->
-    MemFS.stat fs (Path.of_string "/") >>|= function
+    let open FsError in
+    MemFS.create fs (Path.of_string filename) >>= fun () ->
+    MemFS.stat fs (Path.of_string "/") >>= function
     | Stat.Dir (_, names) ->
       let strings = List.map Name.to_string names in
       assert_equal ~printer:(String.concat "; ") [ filename ] strings;
@@ -189,7 +208,7 @@ let make_pattern tag length =
   (* if the tag is smaller than length then truncate it *)
   let tag = if String.length tag > length then String.sub tag 0 length else tag in
   assert (String.length tag <= length);
-  let buffer = Cstruct.create length in
+  let buffer = alloc length in
   Cstruct.blit_from_string tag 0 buffer 0 (String.length tag);
   for i = String.length tag to Cstruct.len buffer - 1 do
     Cstruct.set_char buffer i tag.[i mod (String.length tag)]
@@ -219,7 +238,9 @@ let interesting_filenames = [
    read(write(data)) = data; and that files are extended properly *)
 let test_write ((filename: string), (offset, length)) () =
   let t =
-    MemoryIO.connect "" >>|= fun device ->  
+    let open BlockError in
+    MemoryIO.connect "" >>= fun device ->  
+    let open Lwt in
     MemFS.make device (Int64.mul 16L mib) >>= fun fs ->
     ( match List.rev (Path.to_string_list (Path.of_string filename)) with
     | [] -> assert false
@@ -227,15 +248,17 @@ let test_write ((filename: string), (offset, length)) () =
     | _ :: dir ->
       List.fold_left (fun current dir ->
         current >>= fun current ->
-        MemFS.mkdir fs (Path.(of_string_list (current @ [dir]))) >>|= fun () ->
+        let open FsError in
+        MemFS.mkdir fs (Path.(of_string_list (current @ [dir]))) >>= fun () ->
         return (current @ [dir])
       ) (return []) (List.rev dir) >>= fun _ ->
       return () ) >>= fun () ->
-    MemFS.create fs (Path.of_string filename) >>|= fun () ->
+    let open FsError in
+    MemFS.create fs (Path.of_string filename) >>= fun () ->
     let file = MemFS.file_of_path fs (Path.of_string filename) in
     let buffer = make_pattern "basic writing test " length in
-    MemFS.write fs file 0 buffer >>|= fun () ->
-    MemFS.read fs file 0 512 >>|= fun buffers ->
+    MemFS.write fs file 0 buffer >>= fun () ->
+    MemFS.read fs file 0 512 >>= fun buffers ->
     let to_string x = Printf.sprintf "\"%s\"(%d)" (Cstruct.to_string x) (Cstruct.len x) in
     assert_equal ~printer:to_string ~cmp:cstruct_equal buffer (List.hd buffers);
     return () in

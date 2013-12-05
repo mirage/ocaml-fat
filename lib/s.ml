@@ -18,6 +18,8 @@ module type BLOCK_DEVICE = V1.BLOCK.CLIENT
 with type page_aligned_buffer = Cstruct.t
 and type 'a io = 'a Lwt.t
 
+module type IO_PAGE = V1.IO_PAGE
+
 module Error = struct
   type t =
     | Not_a_directory of Path.t
@@ -57,6 +59,10 @@ module type FS = sig
   type block_device
 
   type 'a io
+
+  type block_device_error
+
+  exception Block_device_error of block_device_error
 
   val make: block_device -> int64 -> fs io
   (** [make size] creates a filesystem of size [size] *)
