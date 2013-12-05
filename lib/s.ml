@@ -39,12 +39,6 @@ module Error = struct
       Printf.sprintf "Unknown_error: %s" x
 end
 
-module Stat = struct 
-  type t =  
-    | File of Name.r 
-    | Dir of Name.r * (Name.r list) (** the directory itself and its immediate children *) 
-end 
-
 module type FS = sig
   type fs
 

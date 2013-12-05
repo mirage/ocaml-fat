@@ -367,7 +367,6 @@ let make size =
           size = Int64.of_int32 ((snd r.Name.dos).Name.file_size);
         })
       | `Ok (Dir ds) ->
-	let ds' = List.map entry_of_file ds in
 	if Path.is_root path
 	then return (`Ok {
           filename = "/";
