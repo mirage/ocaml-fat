@@ -28,6 +28,13 @@ let (>>|=) m f = m >>= function
   | `Error e -> fail (Block_error e)
   | `Ok x -> f x
 
+exception Fs_error of Filesystem.error
+
+let (>>*=) m f = m >>= function
+  | `Error (`Block_device e) -> fail (Block_error e)
+  | `Error e -> fail (Fs_error e)
+  | `Ok x -> f x
+
 let alloc bytes =
   let pages = Io_page.(to_cstruct (get ((bytes + 4095) / 4096))) in
   Cstruct.sub pages 0 bytes
@@ -59,15 +66,16 @@ let run t =
   try
     Lwt_main.run t;
     `Ok ()
-  with Filesystem.Block_device_error `Is_read_only ->
+  with Block_error `Is_read_only ->
     `Error(false, "File is read only")
-  | Filesystem.Block_device_error `Unimplemented ->
+  | Block_error `Unimplemented ->
     `Error(false, "Block operation is unimplemented")
-  | Filesystem.Block_device_error (`Unknown x) ->
+  | Block_error (`Unknown x) ->
     `Error(false, x)
-  | Filesystem.Block_device_error _ ->
+  | Block_error _ ->
     `Error(false, "Unknown block device error")
-
+  | Fs_error _ ->
+    `Error(false, "Unknown filesystem error")
 
 let create common filename size =
   let t =
@@ -107,15 +115,11 @@ let add common filename files =
       match stats.Lwt_unix.st_kind with
       | Lwt_unix.S_REG ->
         Printf.fprintf stderr "copyin %s to %s\n%!" outside_path (Path.to_string inside_path);
-        ( Filesystem.create fs inside_path >>= function
-          | `Error _ -> fail (Failure (Printf.sprintf "Failed to create %s" (Path.to_string inside_path)))
-          | `Ok () -> return () ) >>= fun () ->
+        Filesystem.create fs inside_path >>*= fun _ ->
         copy_file_in fs outside_path inside_path
       | Lwt_unix.S_DIR ->
         let children = Array.to_list (Sys.readdir outside_path) in
-        ( Filesystem.mkdir fs inside_path >>= function
-          | `Error _ -> fail (Failure (Printf.sprintf "Failed to mkdir %s" (Path.to_string inside_path)))
-          | `Ok () -> return () ) >>= fun () ->
+        Filesystem.mkdir fs inside_path >>*= fun _ ->
         Lwt_list.iter_s (copyin outside_path inside_path) children
       | _ ->
         Printf.fprintf stderr "Skipping file: %s\n%!" outside_path;

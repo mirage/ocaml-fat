@@ -17,7 +17,8 @@ let (>>|=) m f = m >>= function
 | `Ok x -> f x
 
 let (>>>) m f = m >>= function
-| `Error e -> Printf.fprintf stderr "%s\n%!" (Error.to_string e); return ()
+| `Error (`Block_device e) -> fail (Block_error e)
+| `Error #Test.error -> fail (Failure "Filesystem error")
 | `Ok x -> f x
 
 let main filename create_size =
@@ -38,23 +39,24 @@ let main filename create_size =
   let do_dir dir =
     let path = Path.cd !cwd dir in
     stat fs path >>> function
-    | Stat.Dir (_, dirs) ->
+    | { directory = true } ->
+      let file = file_of_path fs path in
+      listdir fs file >>> fun xs ->
       Printf.printf "Directory for A:%s\n\n" (Path.to_string path);
-      List.iter
-        (fun x -> Printf.printf "%s\n" (Name.to_string x)) dirs;
-      Printf.printf "%9d files\n%!" (List.length dirs);
+      List.iter (fun x -> Printf.printf "%s\n" x) xs;
+      Printf.printf "%9d files\n%!" (List.length xs);
       return ()
-    | Stat.File _ ->
+    | { directory = false } ->
       Printf.printf "Not a directory.\n%!";
       return () in
   let do_type file =
     let path = Path.cd !cwd file in
     stat fs path >>> function
-    | Stat.Dir (_, _) ->
+    | { directory = true } ->
       Printf.printf "Is a directory.\n%!";
       return ()
-    | Stat.File s ->
-      let file_size = Int32.to_int (Name.file_size_of s) in
+    | { directory = false; size } ->
+      let file_size = Int64.to_int size in
       read fs (file_of_path fs path) 0 file_size >>> fun datas ->
       let n = ref 0 in
       List.iter (fun buf ->
@@ -71,10 +73,10 @@ let main filename create_size =
   let do_cd dir =
     let path = Path.cd !cwd dir in
     stat fs path >>> function
-    | Stat.Dir (_, _) ->
+    | { directory = true } ->
       cwd := path;
       return ()
-    | Stat.File _ ->
+    | { directory = false } ->
       Printf.printf "Not a directory.\n%!";
       return () in
   let do_touch x =
@@ -131,13 +133,15 @@ let main filename create_size =
   let deltree x =
     let rec inner path =
       stat fs path >>> function
-      | Stat.Dir (_, dirs) ->
+      | { directory = true } ->
+        let file = file_of_path fs path in
+        listdir fs file >>> fun xs ->
         Lwt_list.iter_s
           (fun dir ->
-            inner (Path.cd path (Name.filename_of dir))
-	) dirs >>= fun () ->
+            inner (Path.cd path dir)
+	) xs >>= fun () ->
         destroy fs path >>> fun () -> return ()
-      | Stat.File _ ->
+      | { directory = false } ->
         destroy fs path >>> fun () -> return () in
     inner (snd(parse_path x)) in
 

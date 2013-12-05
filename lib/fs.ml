@@ -43,8 +43,25 @@ module Make (B: BLOCK_DEVICE
 
   type block_device_error = B.error
 
-  exception Block_device_error of B.error
+  type error = [
+    | `Not_a_directory of Path.t
+    | `Is_a_directory of Path.t
+    | `Directory_not_empty of Path.t
+    | `No_directory_entry of Path.t * string
+    | `File_already_exists of string
+    | `No_space
+    | `Unknown_error of string
+    | `Block_device of block_device_error
+  ]
 
+  type stat = {
+    filename: string;
+    read_only: bool;
+    directory: bool;
+    size: int64;
+  }
+
+  exception Block_device_error of B.error
   let (>>|=) m f = m >>= function
   | `Error e -> fail (Block_device_error e)
   | `Ok x -> f x
@@ -142,7 +159,7 @@ let make size =
 
   (** [find x path] returns a [find_result] corresponding to the object
       stored at [path] *)
-  let find x path : [ `Ok of find | `Error of Error.t ] io =
+  let find x path : [ `Ok of find | `Error of error ] io =
     let readdir = function
       | Dir ds -> return ds
       | File d ->
@@ -162,11 +179,11 @@ let make size =
       readdir current >>= fun entries ->
       begin match Name.find p entries, ps with
       | Some { Name.dos = _, { Name.subdir = false } }, _ :: _ ->
-        return (`Error (Error.Not_a_directory (Path.of_string_list (List.rev (p :: sofar)))))
+        return (`Error (`Not_a_directory (Path.of_string_list (List.rev (p :: sofar)))))
       | Some d, _ ->
         inner (p::sofar) (File d) ps
       | None, _ ->
-        return (`Error(Error.No_directory_entry (Path.of_string_list (List.rev sofar), p)))
+        return (`Error(`No_directory_entry (Path.of_string_list (List.rev sofar), p)))
       end in
     inner [] (Dir (Name.list x.t.root)) (Path.to_string_list path)
 
@@ -210,7 +227,7 @@ let make size =
 
   end
 
-  exception Fs_error of Error.t
+  exception Fs_error of error
 
   let (>>|=) m f = m >>= function
   | `Error e -> fail (Fs_error e)
@@ -235,7 +252,7 @@ let make size =
       Int64.(to_int(div (add bytes_needed (sub bpc 1L)) bpc)) in
     ( match location, bytes_needed > 0L with
       | Location.Rootdir, true ->
-	fail (Fs_error Error.No_space)
+	fail (Fs_error `No_space)
       | (Location.Rootdir | Location.Chain _), false ->
 	let writes = Update.map updates sectors bps in
         Lwt_list.iter_s (write_update x) writes >>= fun () ->
@@ -263,7 +280,7 @@ let make size =
 	    let filename = Path.filename path in
 	    match Name.find filename ds with
 	      | None ->
-		fail (Fs_error (Error.No_directory_entry (Path.directory path, Path.filename path)))
+		fail (Fs_error (`No_directory_entry (Path.directory path, Path.filename path)))
 	      | Some d ->
 		let file_size = Name.file_size_of d in
 		let new_file_size = max file_size (Int32.of_int (Int64.to_int (Update.total_length update))) in
@@ -276,7 +293,7 @@ let make size =
     let parent_path = Path.directory path in
     find x parent_path >>= function
       | `Error x -> fail (Fs_error x)
-      | `Ok (File _) -> fail (Fs_error (Error.Not_a_directory parent_path))
+      | `Ok (File _) -> fail (Fs_error (`Not_a_directory parent_path))
       | `Ok (Dir ds) ->
         Location.of_file x parent_path >>= fun location ->
         let sectors = Location.to_sectors x location in
@@ -289,7 +306,7 @@ let make size =
     update_directory_containing x path
       (fun contents ds ->
 	if Name.find filename ds <> None
-	then fail (Fs_error (Error.File_already_exists filename))
+	then fail (Fs_error (`File_already_exists filename))
 	else return (Name.add contents dir_entry)
       )
 
@@ -298,11 +315,12 @@ let make size =
       (fun () -> f () >>= fun x -> return (`Ok x))
       (function
        | Fs_error err -> return (`Error err)
-       | e -> return (`Error (Error.Unknown_error (Printexc.to_string e)))) 
+       | Block_device_error err -> return (`Error (`Block_device err))
+       | e -> return (`Error (`Unknown_error (Printexc.to_string e)))) 
 
   (** [write x f offset buf] writes [buf] at [offset] in file [f] on
       filesystem [x] *)
-  let write x f offset buf : [ `Ok of unit | `Error of Error.t ] io =
+  let write x f offset buf : [ `Ok of unit | `Error of error ] io =
     wrap (fun () ->
       (* u is the update, in file co-ordinates *)
       let u = Update.from_cstruct (Int64.of_int offset) buf in
@@ -312,15 +330,15 @@ let make size =
       write_to_location x f location u)
 
   (** [create x path] create a zero-length file at [path] *)
-  let create x path : [ `Ok of unit | `Error of Error.t ] io =
+  let create x path : [ `Ok of unit | `Error of error ] io =
     wrap (fun () -> create_common x path (Name.make (Path.filename path)))
 
   (** [mkdir x path] create an empty directory at [path] *)
-  let mkdir x path : [ `Ok of unit | `Error of Error.t ] io =
+  let mkdir x path : [ `Ok of unit | `Error of error ] io =
     wrap (fun () -> create_common x path (Name.make ~subdir:true (Path.filename path)))
 
   (** [destroy x path] deletes the entry at [path] *)
-  let destroy x path : [ `Ok of unit | `Error of Error.t ] io =
+  let destroy x path : [ `Ok of unit | `Error of error ] io =
     let filename = Path.filename path in
     let do_destroy () =
       update_directory_containing x path
@@ -328,24 +346,35 @@ let make size =
 	(* XXX check for nonempty *)
 	(* XXX delete chain *)
 	  if Name.find filename ds = None
-	  then fail (Fs_error (Error.No_directory_entry(Path.directory path, filename)))
+	  then fail (Fs_error (`No_directory_entry(Path.directory path, filename)))
 	  else return (Name.remove contents filename)
 	) >>= fun () -> return (`Ok ()) in
     find x path >>= function
       | `Error x -> return (`Error x)
       | `Ok (File _) -> do_destroy ()
       | `Ok (Dir []) -> do_destroy ()
-      | `Ok (Dir (_::_)) -> return (`Error(Error.Directory_not_empty(path)))
+      | `Ok (Dir (_::_)) -> return (`Error(`Directory_not_empty(path)))
 
   let stat x path =
     let entry_of_file f = f in
     find x path >>= function
       | `Error x -> return (`Error x)
-      | `Ok (File f) -> return (`Ok (Stat.File (entry_of_file f)))
+      | `Ok (File f) ->
+        let r = entry_of_file f in
+        return (`Ok {
+          filename = r.Name.utf_filename;
+          read_only = (snd r.Name.dos).Name.read_only;
+          directory = false;
+          size = Int64.of_int32 ((snd r.Name.dos).Name.file_size);
+        })
       | `Ok (Dir ds) ->
-	let ds' = List.map entry_of_file ds in
 	if Path.is_root path
-	then return (`Ok (Stat.Dir (entry_of_file Name.fake_root_entry, ds')))
+	then return (`Ok {
+          filename = "/";
+          read_only = false;
+          directory = true;
+          size = 0L;
+        })
 	else
 	  let filename = Path.filename path in
 	  let parent_path = Path.directory path in
@@ -356,8 +385,21 @@ let make size =
 	      begin match Name.find filename ds with
 		| None -> assert false (* impossible by initial match *)
 		| Some f ->
-		  return (`Ok (Stat.Dir (entry_of_file f, ds')))
+                  let r = entry_of_file f in
+                  return (`Ok {
+                    filename = r.Name.utf_filename;
+                    read_only = (snd r.Name.dos).Name.read_only;
+                    directory = true;
+                    size = Int64.of_int32 ((snd r.Name.dos).Name.file_size);
+                  })
 	      end
+
+  let listdir x path =
+    find x path >>= function
+      | `Ok (File _) -> return (`Error (`Not_a_directory path))
+      | `Ok (Dir ds) ->
+        return (`Ok (List.map Name.to_string ds))
+      | `Error x -> return (`Error x)
 
   let read_file x { Name.dos = _, ({ Name.file_size = file_size } as f) } the_start length =
     let bps = x.t.boot.Boot_sector.bytes_per_sector in
@@ -372,7 +414,7 @@ let make size =
 
   let read x path the_start length =
     find x path >>= function
-      | `Ok (Dir _) -> return (`Error (Error.Is_a_directory path))
+      | `Ok (Dir _) -> return (`Error (`Is_a_directory path))
       | `Ok (File f) ->
         read_file x f the_start length >>= fun buffer ->
         return (`Ok [buffer])
