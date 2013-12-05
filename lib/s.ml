@@ -65,6 +65,13 @@ module type FS = sig
   ]
   exception Block_device_error of block_device_error
 
+  type stat = {
+    filename: string;
+    read_only: bool;
+    directory: bool;
+    size: int64;
+  }
+
   val make: block_device -> int64 -> fs io
   (** [make size] creates a filesystem of size [size] *)
 
@@ -83,8 +90,12 @@ module type FS = sig
   (** [file_of_path fs path] returns a [file] corresponding to [path] on
        filesystem [fs] *)
 
-  val stat: fs -> Path.t -> [ `Ok of Stat.t | `Error of error ] io
+  val stat: fs -> Path.t -> [ `Ok of stat | `Error of error ] io
   (** [stat fs f] returns information about file [f] on filesystem [fs] *)
+
+  val listdir: fs -> file -> [ `Ok of string list | `Error of error ] io
+  (** [listdir fs dir] returns the names of files within the directory [dir]
+      or the error `Not_a_directory *)
 
   val write: fs -> file -> int -> Cstruct.t -> [ `Ok of unit | `Error of error ] io
   (** [write fs f offset data] writes [data] at [offset] in file [f] on

@@ -182,11 +182,12 @@ let test_create () =
     let open FsError in
     MemFS.create fs (Path.of_string filename) >>= fun () ->
     MemFS.stat fs (Path.of_string "/") >>= function
-    | Stat.Dir (_, names) ->
-      let strings = List.map Name.to_string names in
-      assert_equal ~printer:(String.concat "; ") [ filename ] strings;
+    | { MemFS.directory = true } ->
+      let file = MemFS.file_of_path fs (Path.of_string "/") in
+      MemFS.listdir fs file >>= fun names ->
+      assert_equal ~printer:(String.concat "; ") [ filename ] names;
       return ()
-    | Stat.File _ ->
+    | { MemFS.directory = false } ->
       fail (Failure "Not a directory") in
   Lwt_main.run t
 

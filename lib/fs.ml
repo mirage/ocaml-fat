@@ -55,6 +55,13 @@ module Make (B: BLOCK_DEVICE
 
   exception Block_device_error of B.error
 
+  type stat = {
+    filename: string;
+    read_only: bool;
+    directory: bool;
+    size: int64;
+  }
+
   let (>>|=) m f = m >>= function
   | `Error e -> fail (Block_device_error e)
   | `Ok x -> f x
@@ -351,11 +358,23 @@ let make size =
     let entry_of_file f = f in
     find x path >>= function
       | `Error x -> return (`Error x)
-      | `Ok (File f) -> return (`Ok (Stat.File (entry_of_file f)))
+      | `Ok (File f) ->
+        let r = entry_of_file f in
+        return (`Ok {
+          filename = r.Name.utf_filename;
+          read_only = (snd r.Name.dos).Name.read_only;
+          directory = false;
+          size = Int64.of_int32 ((snd r.Name.dos).Name.file_size);
+        })
       | `Ok (Dir ds) ->
 	let ds' = List.map entry_of_file ds in
 	if Path.is_root path
-	then return (`Ok (Stat.Dir (entry_of_file Name.fake_root_entry, ds')))
+	then return (`Ok {
+          filename = "/";
+          read_only = false;
+          directory = true;
+          size = 0L;
+        })
 	else
 	  let filename = Path.filename path in
 	  let parent_path = Path.directory path in
@@ -366,8 +385,21 @@ let make size =
 	      begin match Name.find filename ds with
 		| None -> assert false (* impossible by initial match *)
 		| Some f ->
-		  return (`Ok (Stat.Dir (entry_of_file f, ds')))
+                  let r = entry_of_file f in
+                  return (`Ok {
+                    filename = r.Name.utf_filename;
+                    read_only = (snd r.Name.dos).Name.read_only;
+                    directory = true;
+                    size = Int64.of_int32 ((snd r.Name.dos).Name.file_size);
+                  })
 	      end
+
+  let listdir x path =
+    find x path >>= function
+      | `Ok (File _) -> return (`Error (`Not_a_directory path))
+      | `Ok (Dir ds) ->
+        return (`Ok (List.map Name.to_string ds))
+      | `Error x -> return (`Error x)
 
   let read_file x { Name.dos = _, ({ Name.file_size = file_size } as f) } the_start length =
     let bps = x.t.boot.Boot_sector.bytes_per_sector in
