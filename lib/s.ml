@@ -21,15 +21,6 @@ and type 'a io = 'a Lwt.t
 module type IO_PAGE = V1.IO_PAGE
 
 module Error = struct
-  type t = [
-    | `Not_a_directory of Path.t
-    | `Is_a_directory of Path.t
-    | `Directory_not_empty of Path.t
-    | `No_directory_entry of Path.t * string
-    | `File_already_exists of string
-    | `No_space
-    | `Unknown_error of string
-  ]
 
   let to_string = function
     | `Not_a_directory x ->
@@ -63,6 +54,15 @@ module type FS = sig
 
   type block_device_error
 
+  type error = [
+    | `Not_a_directory of Path.t
+    | `Is_a_directory of Path.t
+    | `Directory_not_empty of Path.t
+    | `No_directory_entry of Path.t * string
+    | `File_already_exists of string
+    | `No_space
+    | `Unknown_error of string
+  ]
   exception Block_device_error of block_device_error
 
   val make: block_device -> int64 -> fs io
@@ -72,25 +72,25 @@ module type FS = sig
 
   type file
 
-  val create: fs -> Path.t -> [ `Ok of unit | `Error of Error.t ] io
+  val create: fs -> Path.t -> [ `Ok of unit | `Error of error ] io
 
-  val mkdir: fs -> Path.t -> [ `Ok of unit | `Error of Error.t ] io
+  val mkdir: fs -> Path.t -> [ `Ok of unit | `Error of error ] io
 
-  val destroy: fs -> Path.t -> [ `Ok of unit | `Error of Error.t ] io
+  val destroy: fs -> Path.t -> [ `Ok of unit | `Error of error ] io
   (** [destroy fs path] removes a [path] on filesystem [fs] *)
 
   val file_of_path: fs -> Path.t -> file
   (** [file_of_path fs path] returns a [file] corresponding to [path] on
        filesystem [fs] *)
 
-  val stat: fs -> Path.t -> [ `Ok of Stat.t | `Error of Error.t ] io
+  val stat: fs -> Path.t -> [ `Ok of Stat.t | `Error of error ] io
   (** [stat fs f] returns information about file [f] on filesystem [fs] *)
 
-  val write: fs -> file -> int -> Cstruct.t -> [ `Ok of unit | `Error of Error.t ] io
+  val write: fs -> file -> int -> Cstruct.t -> [ `Ok of unit | `Error of error ] io
   (** [write fs f offset data] writes [data] at [offset] in file [f] on
       filesystem [fs] *)
 
-  val read: fs -> file -> int -> int -> [ `Ok of Cstruct.t list | `Error of Error.t ] io
+  val read: fs -> file -> int -> int -> [ `Ok of Cstruct.t list | `Error of error ] io
   (** [read fs f offset length] reads up to [length] bytes from file [f] on
       filesystem [fs]. If less data is returned than requested, this indicates
       end-of-file. *)

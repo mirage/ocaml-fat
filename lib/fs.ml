@@ -43,6 +43,16 @@ module Make (B: BLOCK_DEVICE
 
   type block_device_error = B.error
 
+  type error = [
+    | `Not_a_directory of Path.t
+    | `Is_a_directory of Path.t
+    | `Directory_not_empty of Path.t
+    | `No_directory_entry of Path.t * string
+    | `File_already_exists of string
+    | `No_space
+    | `Unknown_error of string
+  ]
+
   exception Block_device_error of B.error
 
   let (>>|=) m f = m >>= function
@@ -142,7 +152,7 @@ let make size =
 
   (** [find x path] returns a [find_result] corresponding to the object
       stored at [path] *)
-  let find x path : [ `Ok of find | `Error of Error.t ] io =
+  let find x path : [ `Ok of find | `Error of error ] io =
     let readdir = function
       | Dir ds -> return ds
       | File d ->
@@ -210,7 +220,7 @@ let make size =
 
   end
 
-  exception Fs_error of Error.t
+  exception Fs_error of error
 
   let (>>|=) m f = m >>= function
   | `Error e -> fail (Fs_error e)
@@ -302,7 +312,7 @@ let make size =
 
   (** [write x f offset buf] writes [buf] at [offset] in file [f] on
       filesystem [x] *)
-  let write x f offset buf : [ `Ok of unit | `Error of Error.t ] io =
+  let write x f offset buf : [ `Ok of unit | `Error of error ] io =
     wrap (fun () ->
       (* u is the update, in file co-ordinates *)
       let u = Update.from_cstruct (Int64.of_int offset) buf in
@@ -312,15 +322,15 @@ let make size =
       write_to_location x f location u)
 
   (** [create x path] create a zero-length file at [path] *)
-  let create x path : [ `Ok of unit | `Error of Error.t ] io =
+  let create x path : [ `Ok of unit | `Error of error ] io =
     wrap (fun () -> create_common x path (Name.make (Path.filename path)))
 
   (** [mkdir x path] create an empty directory at [path] *)
-  let mkdir x path : [ `Ok of unit | `Error of Error.t ] io =
+  let mkdir x path : [ `Ok of unit | `Error of error ] io =
     wrap (fun () -> create_common x path (Name.make ~subdir:true (Path.filename path)))
 
   (** [destroy x path] deletes the entry at [path] *)
-  let destroy x path : [ `Ok of unit | `Error of Error.t ] io =
+  let destroy x path : [ `Ok of unit | `Error of error ] io =
     let filename = Path.filename path in
     let do_destroy () =
       update_directory_containing x path
