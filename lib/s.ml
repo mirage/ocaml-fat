@@ -21,29 +21,30 @@ and type 'a io = 'a Lwt.t
 module type IO_PAGE = V1.IO_PAGE
 
 module Error = struct
-  type t =
-    | Not_a_directory of Path.t
-    | Is_a_directory of Path.t
-    | Directory_not_empty of Path.t
-    | No_directory_entry of Path.t * string
-    | File_already_exists of string
-    | No_space
-    | Unknown_error of string
+  type t = [
+    | `Not_a_directory of Path.t
+    | `Is_a_directory of Path.t
+    | `Directory_not_empty of Path.t
+    | `No_directory_entry of Path.t * string
+    | `File_already_exists of string
+    | `No_space
+    | `Unknown_error of string
+  ]
 
   let to_string = function
-    | Not_a_directory x ->
+    | `Not_a_directory x ->
       Printf.sprintf "Not_a_directory %s" (Path.to_string x)
-    | Is_a_directory x->
+    | `Is_a_directory x->
       Printf.sprintf "Is_a_directory %s" (Path.to_string x)
-    | Directory_not_empty x ->
+    | `Directory_not_empty x ->
       Printf.sprintf "Directory_not_empty %s" (Path.to_string x)
-    | No_directory_entry (x, y) ->
+    | `No_directory_entry (x, y) ->
       Printf.sprintf "No_directory_entry %s %s" (Path.to_string x) y
-    | File_already_exists x ->
+    | `File_already_exists x ->
       Printf.sprintf "File_already_exists %s" x
-    | No_space ->
+    | `No_space ->
       Printf.sprintf "No_space"
-    | Unknown_error x ->
+    | `Unknown_error x ->
       Printf.sprintf "Unknown_error: %s" x
 end
 

@@ -162,11 +162,11 @@ let make size =
       readdir current >>= fun entries ->
       begin match Name.find p entries, ps with
       | Some { Name.dos = _, { Name.subdir = false } }, _ :: _ ->
-        return (`Error (Error.Not_a_directory (Path.of_string_list (List.rev (p :: sofar)))))
+        return (`Error (`Not_a_directory (Path.of_string_list (List.rev (p :: sofar)))))
       | Some d, _ ->
         inner (p::sofar) (File d) ps
       | None, _ ->
-        return (`Error(Error.No_directory_entry (Path.of_string_list (List.rev sofar), p)))
+        return (`Error(`No_directory_entry (Path.of_string_list (List.rev sofar), p)))
       end in
     inner [] (Dir (Name.list x.t.root)) (Path.to_string_list path)
 
@@ -235,7 +235,7 @@ let make size =
       Int64.(to_int(div (add bytes_needed (sub bpc 1L)) bpc)) in
     ( match location, bytes_needed > 0L with
       | Location.Rootdir, true ->
-	fail (Fs_error Error.No_space)
+	fail (Fs_error `No_space)
       | (Location.Rootdir | Location.Chain _), false ->
 	let writes = Update.map updates sectors bps in
         Lwt_list.iter_s (write_update x) writes >>= fun () ->
@@ -263,7 +263,7 @@ let make size =
 	    let filename = Path.filename path in
 	    match Name.find filename ds with
 	      | None ->
-		fail (Fs_error (Error.No_directory_entry (Path.directory path, Path.filename path)))
+		fail (Fs_error (`No_directory_entry (Path.directory path, Path.filename path)))
 	      | Some d ->
 		let file_size = Name.file_size_of d in
 		let new_file_size = max file_size (Int32.of_int (Int64.to_int (Update.total_length update))) in
@@ -276,7 +276,7 @@ let make size =
     let parent_path = Path.directory path in
     find x parent_path >>= function
       | `Error x -> fail (Fs_error x)
-      | `Ok (File _) -> fail (Fs_error (Error.Not_a_directory parent_path))
+      | `Ok (File _) -> fail (Fs_error (`Not_a_directory parent_path))
       | `Ok (Dir ds) ->
         Location.of_file x parent_path >>= fun location ->
         let sectors = Location.to_sectors x location in
@@ -289,7 +289,7 @@ let make size =
     update_directory_containing x path
       (fun contents ds ->
 	if Name.find filename ds <> None
-	then fail (Fs_error (Error.File_already_exists filename))
+	then fail (Fs_error (`File_already_exists filename))
 	else return (Name.add contents dir_entry)
       )
 
@@ -298,7 +298,7 @@ let make size =
       (fun () -> f () >>= fun x -> return (`Ok x))
       (function
        | Fs_error err -> return (`Error err)
-       | e -> return (`Error (Error.Unknown_error (Printexc.to_string e)))) 
+       | e -> return (`Error (`Unknown_error (Printexc.to_string e)))) 
 
   (** [write x f offset buf] writes [buf] at [offset] in file [f] on
       filesystem [x] *)
@@ -328,14 +328,14 @@ let make size =
 	(* XXX check for nonempty *)
 	(* XXX delete chain *)
 	  if Name.find filename ds = None
-	  then fail (Fs_error (Error.No_directory_entry(Path.directory path, filename)))
+	  then fail (Fs_error (`No_directory_entry(Path.directory path, filename)))
 	  else return (Name.remove contents filename)
 	) >>= fun () -> return (`Ok ()) in
     find x path >>= function
       | `Error x -> return (`Error x)
       | `Ok (File _) -> do_destroy ()
       | `Ok (Dir []) -> do_destroy ()
-      | `Ok (Dir (_::_)) -> return (`Error(Error.Directory_not_empty(path)))
+      | `Ok (Dir (_::_)) -> return (`Error(`Directory_not_empty(path)))
 
   let stat x path =
     let entry_of_file f = f in
@@ -372,7 +372,7 @@ let make size =
 
   let read x path the_start length =
     find x path >>= function
-      | `Ok (Dir _) -> return (`Error (Error.Is_a_directory path))
+      | `Ok (Dir _) -> return (`Error (`Is_a_directory path))
       | `Ok (File f) ->
         read_file x f the_start length >>= fun buffer ->
         return (`Ok [buffer])
