@@ -28,6 +28,10 @@ let (>>|=) m f = m >>= function
   | `Error e -> fail (Block_error e)
   | `Ok x -> f x
 
+let alloc bytes =
+  let pages = Io_page.(to_cstruct (get ((bytes + 4095) / 4096))) in
+  Cstruct.sub pages 0 bytes
+
 let create common filename size =
   let t =
     ( if Sys.file_exists filename
@@ -37,7 +41,7 @@ let create common filename size =
 
     Lwt_unix.LargeFile.lseek fd Int64.(sub size 512L) Lwt_unix.SEEK_CUR >>= fun _ ->
     let message = "All work and no play makes Dave a dull boy.\n" in
-    let sector = Mirage_block.Block.Memory.alloc 512 in
+    let sector = alloc 512 in
     for i = 0 to 511 do
       Cstruct.set_char sector i (message.[i mod (String.length message)])
     done;
