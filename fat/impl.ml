@@ -54,7 +54,7 @@ let copy_file_in fs outside inside =
           let this = min remaining block_size in
           let frag = Cstruct.sub block 0 this in
           Block.really_read ifd frag >>= fun () ->
-          Filesystem.write fs (Filesystem.file_of_path fs inside) offset frag >>= function
+          Filesystem.write fs inside offset frag >>= function
           | `Ok () -> loop (offset + this) (remaining - this)
           | `Error _ -> failwith "some error" in
       loop 0 stats.Lwt_unix.st_size

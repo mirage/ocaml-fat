@@ -41,7 +41,7 @@ let main filename create_size =
     let path = Path.cd !cwd dir in
     stat fs (Path.to_string path) >>> function
     | { directory = true } ->
-      let file = file_of_path fs (Path.to_string path) in
+      let file = Path.to_string path in
       listdir fs file >>> fun xs ->
       Printf.printf "Directory for A:%s\n\n" (Path.to_string path);
       List.iter (fun x -> Printf.printf "%s\n" x) xs;
@@ -58,7 +58,7 @@ let main filename create_size =
       return ()
     | { directory = false; size } ->
       let file_size = Int64.to_int size in
-      read fs (file_of_path fs (Path.to_string path)) 0 file_size >>> fun datas ->
+      read fs (Path.to_string path) 0 file_size >>> fun datas ->
       let n = ref 0 in
       List.iter (fun buf ->
         Printf.printf "%s" (Cstruct.to_string buf);
@@ -99,7 +99,7 @@ let main filename create_size =
           let this = min remaining block_size in
           let frag = Cstruct.sub block 0 this in
           Block.really_read ifd frag >>= fun () ->
-          write fs (file_of_path fs (Path.to_string inside)) offset frag >>> fun () ->
+          write fs (Path.to_string inside) offset frag >>> fun () ->
           loop (offset + this) (remaining - this) in
         loop 0 stats.Lwt_unix.st_size
       ) in
@@ -135,7 +135,7 @@ let main filename create_size =
     let rec inner path =
       stat fs (Path.to_string path) >>> function
       | { directory = true } ->
-        let file = file_of_path fs (Path.to_string path) in
+        let file = Path.to_string path in
         listdir fs file >>> fun xs ->
         Lwt_list.iter_s
           (fun dir ->

@@ -72,8 +72,6 @@ module type FS = sig
   val format: t -> int64 -> [ `Ok of unit | `Error of error ] io
   (** [format size] creates an empty filesystem of size [size] *)
 
-  type file
-
   val create: t -> string -> [ `Ok of unit | `Error of error ] io
 
   val mkdir: t -> string -> [ `Ok of unit | `Error of error ] io
@@ -81,22 +79,18 @@ module type FS = sig
   val destroy: t -> string -> [ `Ok of unit | `Error of error ] io
   (** [destroy t path] removes a [path] on filesystem [t] *)
 
-  val file_of_path: t -> string -> file
-  (** [file_of_path t path] returns a [file] corresponding to [path] on
-       filesystem [t] *)
-
   val stat: t -> string -> [ `Ok of stat | `Error of error ] io
   (** [stat fs f] returns information about file [f] on filesystem [fs] *)
 
-  val listdir: t -> file -> [ `Ok of string list | `Error of error ] io
+  val listdir: t -> string -> [ `Ok of string list | `Error of error ] io
   (** [listdir fs dir] returns the names of files within the directory [dir]
       or the error `Not_a_directory *)
 
-  val write: t -> file -> int -> Cstruct.t -> [ `Ok of unit | `Error of error ] io
+  val write: t -> string -> int -> Cstruct.t -> [ `Ok of unit | `Error of error ] io
   (** [write fs f offset data] writes [data] at [offset] in file [f] on
       filesystem [fs] *)
 
-  val read: t -> file -> int -> int -> [ `Ok of Cstruct.t list | `Error of error ] io
+  val read: t -> string -> int -> int -> [ `Ok of Cstruct.t list | `Error of error ] io
   (** [read fs f offset length] reads up to [length] bytes from file [f] on
       filesystem [fs]. If less data is returned than requested, this indicates
       end-of-file. *)

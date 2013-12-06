@@ -183,7 +183,7 @@ let test_create () =
     MemFS.create fs filename >>= fun () ->
     MemFS.stat fs "/" >>= function
     | { MemFS.directory = true } ->
-      let file = MemFS.file_of_path fs "/" in
+      let file = "/" in
       MemFS.listdir fs file >>= fun names ->
       assert_equal ~printer:(String.concat "; ") [ filename ] names;
       return ()
@@ -258,10 +258,9 @@ let test_write ((filename: string), (offset, length)) () =
       return () ) >>= fun () ->
     let open FsError in
     MemFS.create fs filename >>= fun () ->
-    let file = MemFS.file_of_path fs filename in
     let buffer = make_pattern "basic writing test " length in
-    MemFS.write fs file 0 buffer >>= fun () ->
-    MemFS.read fs file 0 512 >>= fun buffers ->
+    MemFS.write fs filename 0 buffer >>= fun () ->
+    MemFS.read fs filename 0 512 >>= fun buffers ->
     let to_string x = Printf.sprintf "\"%s\"(%d)" (Cstruct.to_string x) (Cstruct.len x) in
     assert_equal ~printer:to_string ~cmp:cstruct_equal buffer (List.hd buffers);
     return () in

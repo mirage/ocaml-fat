@@ -150,7 +150,6 @@ let make size =
   let disconnect _ = return ()
 
   type file = string
-  let file_of_path fs x = x
 
   type find =
     | Dir of Name.r list
