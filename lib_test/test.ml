@@ -176,10 +176,10 @@ let test_create () =
   let t =
     let open BlockError in
     MemoryIO.connect "" >>= fun device ->
-    let open Lwt in
-    MemFS.make device (Int64.mul 16L mib) >>= fun fs ->
-    let filename = "HELLO.TXT" in
     let open FsError in
+    MemFS.connect device >>= fun fs ->
+    MemFS.format fs (Int64.mul 16L mib) >>= fun () ->
+    let filename = "HELLO.TXT" in
     MemFS.create fs (Path.of_string filename) >>= fun () ->
     MemFS.stat fs (Path.of_string "/") >>= function
     | { MemFS.directory = true } ->
@@ -240,9 +240,11 @@ let interesting_filenames = [
 let test_write ((filename: string), (offset, length)) () =
   let t =
     let open BlockError in
-    MemoryIO.connect "" >>= fun device ->  
+    MemoryIO.connect "" >>= fun device ->
+    let open FsError in  
+    MemFS.connect device >>= fun fs ->
+    MemFS.format fs (Int64.mul 16L mib) >>= fun () ->
     let open Lwt in
-    MemFS.make device (Int64.mul 16L mib) >>= fun fs ->
     ( match List.rev (Path.to_string_list (Path.of_string filename)) with
     | [] -> assert false
     | [ _ ] -> return ()

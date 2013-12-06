@@ -44,7 +44,7 @@ module Error = struct
 end
 
 module type FS = sig
-  type fs
+  type t
 
   type id
 
@@ -71,39 +71,39 @@ module type FS = sig
     size: int64;
   }
 
-  val make: id -> int64 -> fs io
-  (** [make size] creates a filesystem of size [size] *)
-
-  val connect: id -> [ `Ok of fs | `Error of error ] io
+  val connect: id -> [ `Ok of t | `Error of error ] io
   (** [connect id] layers a filesystem on top of the given device id.
       Note the underlying device may need to be formatted before useful
       work can be done. *)
 
+  val format: t -> int64 -> [ `Ok of unit | `Error of error ] io
+  (** [format size] creates an empty filesystem of size [size] *)
+
   type file
 
-  val create: fs -> Path.t -> [ `Ok of unit | `Error of error ] io
+  val create: t -> Path.t -> [ `Ok of unit | `Error of error ] io
 
-  val mkdir: fs -> Path.t -> [ `Ok of unit | `Error of error ] io
+  val mkdir: t -> Path.t -> [ `Ok of unit | `Error of error ] io
 
-  val destroy: fs -> Path.t -> [ `Ok of unit | `Error of error ] io
-  (** [destroy fs path] removes a [path] on filesystem [fs] *)
+  val destroy: t -> Path.t -> [ `Ok of unit | `Error of error ] io
+  (** [destroy t path] removes a [path] on filesystem [t] *)
 
-  val file_of_path: fs -> Path.t -> file
-  (** [file_of_path fs path] returns a [file] corresponding to [path] on
-       filesystem [fs] *)
+  val file_of_path: t -> Path.t -> file
+  (** [file_of_path t path] returns a [file] corresponding to [path] on
+       filesystem [t] *)
 
-  val stat: fs -> Path.t -> [ `Ok of stat | `Error of error ] io
+  val stat: t -> Path.t -> [ `Ok of stat | `Error of error ] io
   (** [stat fs f] returns information about file [f] on filesystem [fs] *)
 
-  val listdir: fs -> file -> [ `Ok of string list | `Error of error ] io
+  val listdir: t -> file -> [ `Ok of string list | `Error of error ] io
   (** [listdir fs dir] returns the names of files within the directory [dir]
       or the error `Not_a_directory *)
 
-  val write: fs -> file -> int -> Cstruct.t -> [ `Ok of unit | `Error of error ] io
+  val write: t -> file -> int -> Cstruct.t -> [ `Ok of unit | `Error of error ] io
   (** [write fs f offset data] writes [data] at [offset] in file [f] on
       filesystem [fs] *)
 
-  val read: fs -> file -> int -> int -> [ `Ok of Cstruct.t list | `Error of error ] io
+  val read: t -> file -> int -> int -> [ `Ok of Cstruct.t list | `Error of error ] io
   (** [read fs f offset length] reads up to [length] bytes from file [f] on
       filesystem [fs]. If less data is returned than requested, this indicates
       end-of-file. *)

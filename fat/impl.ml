@@ -92,8 +92,9 @@ let create common filename size =
     Lwt_unix.close fd >>= fun () ->
 
     Block.connect filename >>|= fun device ->
+    Filesystem.connect device >>*= fun fs ->
     if common.verb then Printf.printf "Created %s\n%!" filename;
-    Filesystem.make device size >>= fun _ ->
+    Filesystem.format fs size >>*= fun () ->
     if common.verb then Printf.printf "Filesystem of size %Ld created\n%!" size;
     return () in
   run t
