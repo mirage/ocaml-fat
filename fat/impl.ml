@@ -109,11 +109,11 @@ let add common filename files =
     Filesystem.connect device >>*= fun fs ->
     let rec copyin outside_path inside_path file =
       let outside_path = Filename.concat outside_path file in
-      let inside_path = Path.concat inside_path file in
+      let inside_path = Filename.concat inside_path file in
       Lwt_unix.stat outside_path >>= fun stats ->
       match stats.Lwt_unix.st_kind with
       | Lwt_unix.S_REG ->
-        Printf.fprintf stderr "copyin %s to %s\n%!" outside_path (Path.to_string inside_path);
+        Printf.fprintf stderr "copyin %s to %s\n%!" outside_path inside_path;
         Filesystem.create fs inside_path >>*= fun _ ->
         copy_file_in fs outside_path inside_path
       | Lwt_unix.S_DIR ->
@@ -123,5 +123,5 @@ let add common filename files =
       | _ ->
         Printf.fprintf stderr "Skipping file: %s\n%!" outside_path;
         return () in
-    Lwt_list.iter_s (copyin "" (Path.of_string "/")) files in
+    Lwt_list.iter_s (copyin "" "/") files in
   run t

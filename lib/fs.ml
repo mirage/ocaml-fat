@@ -147,7 +147,9 @@ let make size =
           return (Some { boot; format; fat; root }) ) >>= fun fs ->
     return (`Ok { device; fs })
 
-  type file = Path.t
+  let disconnect _ = return ()
+
+  type file = string
   let file_of_path fs x = x
 
   type find =
@@ -309,6 +311,7 @@ let make size =
     | None -> fail (Fs_error (`Format_not_recognised ""))
 
   let create_common x path dir_entry =
+    let path = Path.of_string path in
     if_formatted x (fun fs ->
       let filename = Path.filename path in
       update_directory_containing x.device fs path
@@ -330,6 +333,7 @@ let make size =
   (** [write x f offset buf] writes [buf] at [offset] in file [f] on
       filesystem [x] *)
   let write x f offset buf : [ `Ok of unit | `Error of error ] io =
+    let f = Path.of_string f in
     if_formatted x (fun fs ->
       wrap (fun () ->
         (* u is the update, in file co-ordinates *)
@@ -342,14 +346,15 @@ let make size =
 
   (** [create x path] create a zero-length file at [path] *)
   let create x path : [ `Ok of unit | `Error of error ] io =
-    wrap (fun () -> create_common x path (Name.make (Path.filename path)))
+    wrap (fun () -> create_common x path (Name.make (Filename.basename path)))
 
   (** [mkdir x path] create an empty directory at [path] *)
   let mkdir x path : [ `Ok of unit | `Error of error ] io =
-    wrap (fun () -> create_common x path (Name.make ~subdir:true (Path.filename path)))
+    wrap (fun () -> create_common x path (Name.make ~subdir:true (Filename.basename path)))
 
   (** [destroy x path] deletes the entry at [path] *)
   let destroy x path : [ `Ok of unit | `Error of error ] io =
+    let path = Path.of_string path in
     if_formatted x (fun fs ->
       let filename = Path.filename path in
       let do_destroy () =
@@ -369,6 +374,7 @@ let make size =
     )
 
   let stat x path =
+    let path = Path.of_string path in
     let entry_of_file f = f in
     if_formatted x (fun fs ->
     find x.device fs path >>= function
@@ -410,6 +416,7 @@ let make size =
     )
 
   let listdir x path =
+    let path = Path.of_string path in
     if_formatted x (fun fs ->
       find x.device fs path >>= function
         | `Ok (File _) -> return (`Error (`Not_a_directory path))
@@ -430,6 +437,7 @@ let make size =
     return buffer
 
   let read x path the_start length =
+    let path = Path.of_string path in
     if_formatted x (fun fs ->
       find x.device fs path >>= function
         | `Ok (Dir _) -> return (`Error (`Is_a_directory path))

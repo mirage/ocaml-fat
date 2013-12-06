@@ -44,11 +44,6 @@ module Error = struct
 end
 
 module type FS = sig
-  type t
-
-  type id
-
-  type 'a io
 
   type block_device_error
 
@@ -64,6 +59,9 @@ module type FS = sig
     | `Block_device of block_device_error
   ]
 
+  include V1.DEVICE with
+    type error := error
+
   type stat = {
     filename: string;
     read_only: bool;
@@ -71,28 +69,23 @@ module type FS = sig
     size: int64;
   }
 
-  val connect: id -> [ `Ok of t | `Error of error ] io
-  (** [connect id] layers a filesystem on top of the given device id.
-      Note the underlying device may need to be formatted before useful
-      work can be done. *)
-
   val format: t -> int64 -> [ `Ok of unit | `Error of error ] io
   (** [format size] creates an empty filesystem of size [size] *)
 
   type file
 
-  val create: t -> Path.t -> [ `Ok of unit | `Error of error ] io
+  val create: t -> string -> [ `Ok of unit | `Error of error ] io
 
-  val mkdir: t -> Path.t -> [ `Ok of unit | `Error of error ] io
+  val mkdir: t -> string -> [ `Ok of unit | `Error of error ] io
 
-  val destroy: t -> Path.t -> [ `Ok of unit | `Error of error ] io
+  val destroy: t -> string -> [ `Ok of unit | `Error of error ] io
   (** [destroy t path] removes a [path] on filesystem [t] *)
 
-  val file_of_path: t -> Path.t -> file
+  val file_of_path: t -> string -> file
   (** [file_of_path t path] returns a [file] corresponding to [path] on
        filesystem [t] *)
 
-  val stat: t -> Path.t -> [ `Ok of stat | `Error of error ] io
+  val stat: t -> string -> [ `Ok of stat | `Error of error ] io
   (** [stat fs f] returns information about file [f] on filesystem [fs] *)
 
   val listdir: t -> file -> [ `Ok of string list | `Error of error ] io
