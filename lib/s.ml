@@ -20,86 +20,30 @@ and type 'a io = 'a Lwt.t
 
 module type IO_PAGE = V1.IO_PAGE
 
+module type FS = V1.FS
+with type page_aligned_buffer = Cstruct.t
+and type 'a io = 'a Lwt.t
+
 module Error = struct
 
   let to_string = function
     | `Not_a_directory x ->
-      Printf.sprintf "Not_a_directory %s" (Path.to_string x)
+      Printf.sprintf "Not_a_directory %s" x
     | `Is_a_directory x->
-      Printf.sprintf "Is_a_directory %s" (Path.to_string x)
+      Printf.sprintf "Is_a_directory %s" x
     | `Directory_not_empty x ->
-      Printf.sprintf "Directory_not_empty %s" (Path.to_string x)
+      Printf.sprintf "Directory_not_empty %s" x
     | `No_directory_entry (x, y) ->
-      Printf.sprintf "No_directory_entry %s %s" (Path.to_string x) y
+      Printf.sprintf "No_directory_entry %s %s" x y
     | `File_already_exists x ->
       Printf.sprintf "File_already_exists %s" x
     | `No_space ->
       Printf.sprintf "No_space"
+    | `Format_not_recognised details ->
+      Printf.sprintf "Format_not_recognised: %s" details
     | `Unknown_error x ->
       Printf.sprintf "Unknown_error: %s" x
     | `Block_device _ ->
       Printf.sprintf "Block device error"
-end
-
-module type FS = sig
-  type fs
-
-  type block_device
-
-  type 'a io
-
-  type block_device_error
-
-  type error = [
-    | `Not_a_directory of Path.t
-    | `Is_a_directory of Path.t
-    | `Directory_not_empty of Path.t
-    | `No_directory_entry of Path.t * string
-    | `File_already_exists of string
-    | `No_space
-    | `Unknown_error of string
-    | `Block_device of block_device_error
-  ]
-
-  type stat = {
-    filename: string;
-    read_only: bool;
-    directory: bool;
-    size: int64;
-  }
-
-  val make: block_device -> int64 -> fs io
-  (** [make size] creates a filesystem of size [size] *)
-
-  val openfile: block_device -> fs io
-
-  type file
-
-  val create: fs -> Path.t -> [ `Ok of unit | `Error of error ] io
-
-  val mkdir: fs -> Path.t -> [ `Ok of unit | `Error of error ] io
-
-  val destroy: fs -> Path.t -> [ `Ok of unit | `Error of error ] io
-  (** [destroy fs path] removes a [path] on filesystem [fs] *)
-
-  val file_of_path: fs -> Path.t -> file
-  (** [file_of_path fs path] returns a [file] corresponding to [path] on
-       filesystem [fs] *)
-
-  val stat: fs -> Path.t -> [ `Ok of stat | `Error of error ] io
-  (** [stat fs f] returns information about file [f] on filesystem [fs] *)
-
-  val listdir: fs -> file -> [ `Ok of string list | `Error of error ] io
-  (** [listdir fs dir] returns the names of files within the directory [dir]
-      or the error `Not_a_directory *)
-
-  val write: fs -> file -> int -> Cstruct.t -> [ `Ok of unit | `Error of error ] io
-  (** [write fs f offset data] writes [data] at [offset] in file [f] on
-      filesystem [fs] *)
-
-  val read: fs -> file -> int -> int -> [ `Ok of Cstruct.t list | `Error of error ] io
-  (** [read fs f offset length] reads up to [length] bytes from file [f] on
-      filesystem [fs]. If less data is returned than requested, this indicates
-      end-of-file. *)
 end
 

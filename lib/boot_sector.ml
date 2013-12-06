@@ -144,7 +144,7 @@ let format_of_clusters number_of_clusters =
 exception Unknown_FAT_cluster_type
 
 let detect_format x = match format_of_clusters (clusters x) with
-  | None -> `Error Unknown_FAT_cluster_type
+  | None -> `Error "unknown cluster type"
   | Some x -> `Ok x
 
 let make size =

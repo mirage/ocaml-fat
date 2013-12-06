@@ -18,7 +18,7 @@ open OUnit
 open Lwt
 open Fat
 open S
-open Mirage_block.Block
+open Block
 
 let alloc bytes =
   let pages = Io_page.(to_cstruct (get ((bytes + 4095) / 4096))) in
@@ -101,7 +101,7 @@ let test_chains () =
     | `Error x -> failwith x
     | `Ok x -> x in
     let printer = function
-    | `Error e -> Printexc.to_string e
+    | `Error e -> e
     | `Ok x -> Fat_format.to_string x in
     assert_equal ~printer (`Ok Fat_format.FAT16) (Boot_sector.detect_format boot);
     read_whole_file "lib_test/root.dat" >>= fun bytes ->
@@ -176,14 +176,14 @@ let test_create () =
   let t =
     let open BlockError in
     MemoryIO.connect "" >>= fun device ->
-    let open Lwt in
-    MemFS.make device (Int64.mul 16L mib) >>= fun fs ->
-    let filename = "HELLO.TXT" in
     let open FsError in
-    MemFS.create fs (Path.of_string filename) >>= fun () ->
-    MemFS.stat fs (Path.of_string "/") >>= function
+    MemFS.connect device >>= fun fs ->
+    MemFS.format fs (Int64.mul 16L mib) >>= fun () ->
+    let filename = "HELLO.TXT" in
+    MemFS.create fs filename >>= fun () ->
+    MemFS.stat fs "/" >>= function
     | { MemFS.directory = true } ->
-      let file = MemFS.file_of_path fs (Path.of_string "/") in
+      let file = "/" in
       MemFS.listdir fs file >>= fun names ->
       assert_equal ~printer:(String.concat "; ") [ filename ] names;
       return ()
@@ -240,9 +240,11 @@ let interesting_filenames = [
 let test_write ((filename: string), (offset, length)) () =
   let t =
     let open BlockError in
-    MemoryIO.connect "" >>= fun device ->  
+    MemoryIO.connect "" >>= fun device ->
+    let open FsError in  
+    MemFS.connect device >>= fun fs ->
+    MemFS.format fs (Int64.mul 16L mib) >>= fun () ->
     let open Lwt in
-    MemFS.make device (Int64.mul 16L mib) >>= fun fs ->
     ( match List.rev (Path.to_string_list (Path.of_string filename)) with
     | [] -> assert false
     | [ _ ] -> return ()
@@ -250,16 +252,15 @@ let test_write ((filename: string), (offset, length)) () =
       List.fold_left (fun current dir ->
         current >>= fun current ->
         let open FsError in
-        MemFS.mkdir fs (Path.(of_string_list (current @ [dir]))) >>= fun () ->
+        MemFS.mkdir fs (Path.(to_string (of_string_list (current @ [dir])))) >>= fun () ->
         return (current @ [dir])
       ) (return []) (List.rev dir) >>= fun _ ->
       return () ) >>= fun () ->
     let open FsError in
-    MemFS.create fs (Path.of_string filename) >>= fun () ->
-    let file = MemFS.file_of_path fs (Path.of_string filename) in
+    MemFS.create fs filename >>= fun () ->
     let buffer = make_pattern "basic writing test " length in
-    MemFS.write fs file 0 buffer >>= fun () ->
-    MemFS.read fs file 0 512 >>= fun buffers ->
+    MemFS.write fs filename 0 buffer >>= fun () ->
+    MemFS.read fs filename 0 512 >>= fun buffers ->
     let to_string x = Printf.sprintf "\"%s\"(%d)" (Cstruct.to_string x) (Cstruct.len x) in
     assert_equal ~printer:to_string ~cmp:cstruct_equal buffer (List.hd buffers);
     return () in

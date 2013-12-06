@@ -17,10 +17,8 @@ open Lwt
 open Fat
 open S
 
-module Block = Mirage_block.Block
 module Filesystem = Fs.Make(Block)(Io_page)
 open Common
-let f = Filesystem.openfile
 
 exception Block_error of Block.error
 
@@ -56,7 +54,7 @@ let copy_file_in fs outside inside =
           let this = min remaining block_size in
           let frag = Cstruct.sub block 0 this in
           Block.really_read ifd frag >>= fun () ->
-          Filesystem.write fs (Filesystem.file_of_path fs inside) offset frag >>= function
+          Filesystem.write fs inside offset frag >>= function
           | `Ok () -> loop (offset + this) (remaining - this)
           | `Error _ -> failwith "some error" in
       loop 0 stats.Lwt_unix.st_size
@@ -94,8 +92,9 @@ let create common filename size =
     Lwt_unix.close fd >>= fun () ->
 
     Block.connect filename >>|= fun device ->
+    Filesystem.connect device >>*= fun fs ->
     if common.verb then Printf.printf "Created %s\n%!" filename;
-    Filesystem.make device size >>= fun _ ->
+    Filesystem.format fs size >>*= fun () ->
     if common.verb then Printf.printf "Filesystem of size %Ld created\n%!" size;
     return () in
   run t
@@ -107,14 +106,14 @@ let add common filename files =
   let t =
     Block.connect filename >>|= fun device ->
     if common.verb then Printf.printf "Opened %s\n%!" filename;
-    Filesystem.openfile device >>= fun fs ->
+    Filesystem.connect device >>*= fun fs ->
     let rec copyin outside_path inside_path file =
       let outside_path = Filename.concat outside_path file in
-      let inside_path = Path.concat inside_path file in
+      let inside_path = Filename.concat inside_path file in
       Lwt_unix.stat outside_path >>= fun stats ->
       match stats.Lwt_unix.st_kind with
       | Lwt_unix.S_REG ->
-        Printf.fprintf stderr "copyin %s to %s\n%!" outside_path (Path.to_string inside_path);
+        Printf.fprintf stderr "copyin %s to %s\n%!" outside_path inside_path;
         Filesystem.create fs inside_path >>*= fun _ ->
         copy_file_in fs outside_path inside_path
       | Lwt_unix.S_DIR ->
@@ -124,5 +123,5 @@ let add common filename files =
       | _ ->
         Printf.fprintf stderr "Skipping file: %s\n%!" outside_path;
         return () in
-    Lwt_list.iter_s (copyin "" (Path.of_string "/")) files in
+    Lwt_list.iter_s (copyin "" "/") files in
   run t
