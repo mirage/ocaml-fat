@@ -417,6 +417,10 @@ let make size =
 	      end
     )
 
+  let size x path =
+    stat x path >>|= fun s ->
+    return (`Ok s.size)
+
   let listdir x path =
     let path = Path.of_string path in
     if_formatted x (fun fs ->
