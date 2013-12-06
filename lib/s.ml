@@ -44,7 +44,7 @@ end
 module type FS = sig
   type fs
 
-  type block_device
+  type id
 
   type 'a io
 
@@ -68,10 +68,13 @@ module type FS = sig
     size: int64;
   }
 
-  val make: block_device -> int64 -> fs io
+  val make: id -> int64 -> fs io
   (** [make size] creates a filesystem of size [size] *)
 
-  val openfile: block_device -> fs io
+  val connect: id -> [ `Ok of fs | `Error of error ] io
+  (** [connect id] layers a filesystem on top of the given device id.
+      Note the underlying device may need to be formatted before useful
+      work can be done. *)
 
   type file
 

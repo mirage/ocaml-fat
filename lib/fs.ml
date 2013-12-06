@@ -28,7 +28,7 @@ module Make (B: BLOCK_DEVICE
   with type 'a io = 'a Lwt.t
   and type page_aligned_buffer = Cstruct.t)(M: IO_PAGE
   with type buf = Cstruct.t): (FS
-  with type block_device = B.t
+  with type id = B.t
   and type 'a io = 'a Lwt.t
   and type block_device_error = B.error
 ) = struct
@@ -39,7 +39,7 @@ module Make (B: BLOCK_DEVICE
 
   type 'a io = 'a Lwt.t
 
-  type block_device = B.t
+  type id = B.t
 
   type block_device_error = B.error
 
@@ -130,7 +130,7 @@ let make size =
     Lwt_list.iter_s (write_update x) root_writes >>= fun () ->
     return x
 
-  let openfile device =
+  let connect device =
     let sector = alloc 512 in
     B.read device 0L [ sector ] >>|= fun () ->
     ( match Boot_sector.unmarshal sector with
@@ -142,7 +142,7 @@ let make size =
     read_sectors device (Boot_sector.sectors_of_fat boot) >>= fun fat ->
     read_sectors device (Boot_sector.sectors_of_root_dir boot) >>= fun root ->
     let t = { boot; format; fat; root } in
-    return { device; t }
+    return (`Ok { device; t })
 
   type file = Path.t
   let file_of_path fs x = x

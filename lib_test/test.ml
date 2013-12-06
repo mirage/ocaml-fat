@@ -18,7 +18,7 @@ open OUnit
 open Lwt
 open Fat
 open S
-open Mirage_block.Block
+open Block
 
 let alloc bytes =
   let pages = Io_page.(to_cstruct (get ((bytes + 4095) / 4096))) in

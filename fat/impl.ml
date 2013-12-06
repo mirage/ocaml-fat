@@ -17,10 +17,8 @@ open Lwt
 open Fat
 open S
 
-module Block = Mirage_block.Block
 module Filesystem = Fs.Make(Block)(Io_page)
 open Common
-let f = Filesystem.openfile
 
 exception Block_error of Block.error
 
@@ -107,7 +105,7 @@ let add common filename files =
   let t =
     Block.connect filename >>|= fun device ->
     if common.verb then Printf.printf "Opened %s\n%!" filename;
-    Filesystem.openfile device >>= fun fs ->
+    Filesystem.connect device >>*= fun fs ->
     let rec copyin outside_path inside_path file =
       let outside_path = Filename.concat outside_path file in
       let inside_path = Path.concat inside_path file in

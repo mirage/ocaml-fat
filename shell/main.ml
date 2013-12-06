@@ -3,7 +3,6 @@ open Lwt
 open Fat
 open S
 
-module Block = Mirage_block.Block
 module Test = Fs.Make(Block)(Io_page)
 
 let with_file flags filename f =
@@ -23,10 +22,12 @@ let (>>>) m f = m >>= function
 
 let main filename create_size =
   Block.connect filename >>|= fun device ->
+  Test.connect device >>> fun fs ->
+(*
   ( match create_size with
-    | None -> Test.openfile device
+    | None -> Test.connect device
     | Some x -> Test.make device (Int64.(mul (mul (of_int x) 1024L) 1024L)) ) >>= fun fs ->
-
+*)
   let open Test in
   let open Fs in
   (*
