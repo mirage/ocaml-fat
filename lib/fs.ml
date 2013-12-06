@@ -44,10 +44,10 @@ module Make (B: BLOCK_DEVICE
   type block_device_error = B.error
 
   type error = [
-    | `Not_a_directory of Path.t
-    | `Is_a_directory of Path.t
-    | `Directory_not_empty of Path.t
-    | `No_directory_entry of Path.t * string
+    | `Not_a_directory of string 
+    | `Is_a_directory of string
+    | `Directory_not_empty of string
+    | `No_directory_entry of string * string
     | `File_already_exists of string
     | `No_space
     | `Format_not_recognised of string
@@ -183,11 +183,11 @@ let make size =
       readdir current >>= fun entries ->
       begin match Name.find p entries, ps with
       | Some { Name.dos = _, { Name.subdir = false } }, _ :: _ ->
-        return (`Error (`Not_a_directory (Path.of_string_list (List.rev (p :: sofar)))))
+        return (`Error (`Not_a_directory (Path.(to_string (of_string_list (List.rev (p :: sofar)))))))
       | Some d, _ ->
         inner (p::sofar) (File d) ps
       | None, _ ->
-        return (`Error(`No_directory_entry (Path.of_string_list (List.rev sofar), p)))
+        return (`Error(`No_directory_entry (Path.(to_string (of_string_list (List.rev sofar))), p)))
       end in
     inner [] (Dir (Name.list fs.root)) (Path.to_string_list path)
 
@@ -284,7 +284,7 @@ let make size =
 	    let filename = Path.filename path in
 	    match Name.find filename ds with
 	      | None ->
-		fail (Fs_error (`No_directory_entry (Path.directory path, Path.filename path)))
+		fail (Fs_error (`No_directory_entry (Path.to_string (Path.directory path), Path.filename path)))
 	      | Some d ->
 		let file_size = Name.file_size_of d in
 		let new_file_size = max file_size (Int32.of_int (Int64.to_int (Update.total_length update))) in
@@ -297,7 +297,7 @@ let make size =
     let parent_path = Path.directory path in
     find device fs parent_path >>= function
       | `Error x -> fail (Fs_error x)
-      | `Ok (File _) -> fail (Fs_error (`Not_a_directory parent_path))
+      | `Ok (File _) -> fail (Fs_error (`Not_a_directory (Path.to_string parent_path)))
       | `Ok (Dir ds) ->
         Location.of_file device fs parent_path >>= fun location ->
         let sectors = Location.to_sectors fs location in
@@ -362,14 +362,14 @@ let make size =
             (* XXX check for nonempty *)
             (* XXX delete chain *)
             if Name.find filename ds = None
-            then fail (Fs_error (`No_directory_entry(Path.directory path, filename)))
+            then fail (Fs_error (`No_directory_entry(Path.(to_string (directory path)), filename)))
             else return (Name.remove contents filename)
       ) >>= fun () -> return (`Ok ()) in
       find x.device fs path >>= function
         | `Error x -> return (`Error x)
         | `Ok (File _) -> do_destroy ()
         | `Ok (Dir []) -> do_destroy ()
-        | `Ok (Dir (_::_)) -> return (`Error(`Directory_not_empty(path)))
+        | `Ok (Dir (_::_)) -> return (`Error(`Directory_not_empty(Path.to_string path)))
     )
 
   let stat x path =
@@ -418,7 +418,7 @@ let make size =
     let path = Path.of_string path in
     if_formatted x (fun fs ->
       find x.device fs path >>= function
-        | `Ok (File _) -> return (`Error (`Not_a_directory path))
+        | `Ok (File _) -> return (`Error (`Not_a_directory (Path.to_string path)))
         | `Ok (Dir ds) ->
           return (`Ok (List.map Name.to_string ds))
         | `Error x -> return (`Error x)
@@ -439,7 +439,7 @@ let make size =
     let path = Path.of_string path in
     if_formatted x (fun fs ->
       find x.device fs path >>= function
-        | `Ok (Dir _) -> return (`Error (`Is_a_directory path))
+        | `Ok (Dir _) -> return (`Error (`Is_a_directory (Path.to_string path)))
         | `Ok (File f) ->
           read_file x.device fs f the_start length >>= fun buffer ->
           return (`Ok [buffer])
