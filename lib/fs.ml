@@ -50,6 +50,7 @@ module Make (B: BLOCK_DEVICE
     | `No_directory_entry of Path.t * string
     | `File_already_exists of string
     | `No_space
+    | `Format_not_recognised of string
     | `Unknown_error of string
     | `Block_device of block_device_error
   ]
@@ -113,7 +114,7 @@ let make size =
   let make device size =
     ( match make size with
       | `Ok x -> return x
-      | `Error x -> fail x ) >>= fun t ->
+      | `Error x -> fail (Failure x) ) >>= fun t ->
 
     let sector = alloc 512 in
     Boot_sector.marshal sector t.boot;
@@ -133,16 +134,16 @@ let make size =
   let connect device =
     let sector = alloc 512 in
     B.read device 0L [ sector ] >>|= fun () ->
-    ( match Boot_sector.unmarshal sector with
-      | `Ok x -> return x
-      | `Error x -> fail (Failure x) ) >>= fun boot ->
-    ( match Boot_sector.detect_format boot with
-      | `Ok x -> return x
-      | `Error x -> fail x ) >>= fun format ->
-    read_sectors device (Boot_sector.sectors_of_fat boot) >>= fun fat ->
-    read_sectors device (Boot_sector.sectors_of_root_dir boot) >>= fun root ->
-    let t = { boot; format; fat; root } in
-    return (`Ok { device; t })
+    match Boot_sector.unmarshal sector with
+    | `Error reason -> return (`Error (`Format_not_recognised reason))
+    | `Ok boot ->
+      match Boot_sector.detect_format boot with
+      | `Error reason -> return (`Error (`Format_not_recognised reason))
+      | `Ok format ->
+        read_sectors device (Boot_sector.sectors_of_fat boot) >>= fun fat ->
+        read_sectors device (Boot_sector.sectors_of_root_dir boot) >>= fun root ->
+        let t = { boot; format; fat; root } in
+        return (`Ok { device; t })
 
   type file = Path.t
   let file_of_path fs x = x

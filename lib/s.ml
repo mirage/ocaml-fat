@@ -35,6 +35,8 @@ module Error = struct
       Printf.sprintf "File_already_exists %s" x
     | `No_space ->
       Printf.sprintf "No_space"
+    | `Format_not_recognised details ->
+      Printf.sprintf "Format_not_recognised: %s" details
     | `Unknown_error x ->
       Printf.sprintf "Unknown_error: %s" x
     | `Block_device _ ->
@@ -57,6 +59,7 @@ module type FS = sig
     | `No_directory_entry of Path.t * string
     | `File_already_exists of string
     | `No_space
+    | `Format_not_recognised of string
     | `Unknown_error of string
     | `Block_device of block_device_error
   ]

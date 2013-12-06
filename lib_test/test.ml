@@ -101,7 +101,7 @@ let test_chains () =
     | `Error x -> failwith x
     | `Ok x -> x in
     let printer = function
-    | `Error e -> Printexc.to_string e
+    | `Error e -> e
     | `Ok x -> Fat_format.to_string x in
     assert_equal ~printer (`Ok Fat_format.FAT16) (Boot_sector.detect_format boot);
     read_whole_file "lib_test/root.dat" >>= fun bytes ->
