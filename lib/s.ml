@@ -62,6 +62,9 @@ module type FS = sig
   include V1.DEVICE with
     type error := error
 
+  (** Abstract type for a page-aligned memory buffer *)
+  type page_aligned_buffer
+
   type stat = {
     filename: string;
     read_only: bool;
@@ -70,29 +73,32 @@ module type FS = sig
   }
 
   val format: t -> int64 -> [ `Ok of unit | `Error of error ] io
-  (** [format size] creates an empty filesystem of size [size] *)
+  (** [format size] erases the contents of [t] and creates an empty filesystem
+      of size [size] bytes *)
 
   val create: t -> string -> [ `Ok of unit | `Error of error ] io
+  (** [create t path] creates an empty file at [path] *)
 
   val mkdir: t -> string -> [ `Ok of unit | `Error of error ] io
+  (** [mkdir t path] creates an empty directory at [path] *)
 
   val destroy: t -> string -> [ `Ok of unit | `Error of error ] io
   (** [destroy t path] removes a [path] on filesystem [t] *)
 
   val stat: t -> string -> [ `Ok of stat | `Error of error ] io
-  (** [stat fs f] returns information about file [f] on filesystem [fs] *)
+  (** [stat t path] returns information about file or directory at [path] *)
 
   val listdir: t -> string -> [ `Ok of string list | `Error of error ] io
-  (** [listdir fs dir] returns the names of files within the directory [dir]
+  (** [listdir t path] returns the names of files within the directory [path]
       or the error `Not_a_directory *)
 
-  val write: t -> string -> int -> Cstruct.t -> [ `Ok of unit | `Error of error ] io
-  (** [write fs f offset data] writes [data] at [offset] in file [f] on
-      filesystem [fs] *)
+  val write: t -> string -> int -> page_aligned_buffer -> [ `Ok of unit | `Error of error ] io
+  (** [write t path offset data] writes [data] at [offset] in file [path] on
+      filesystem [t] *)
 
-  val read: t -> string -> int -> int -> [ `Ok of Cstruct.t list | `Error of error ] io
-  (** [read fs f offset length] reads up to [length] bytes from file [f] on
-      filesystem [fs]. If less data is returned than requested, this indicates
+  val read: t -> string -> int -> int -> [ `Ok of page_aligned_buffer list | `Error of error ] io
+  (** [read t path offset length] reads up to [length] bytes from file [path] on
+      filesystem [t]. If less data is returned than requested, this indicates
       end-of-file. *)
 end
 

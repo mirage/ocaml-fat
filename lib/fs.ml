@@ -31,6 +31,7 @@ module Make (B: BLOCK_DEVICE
   with type id = B.t
   and type 'a io = 'a Lwt.t
   and type block_device_error = B.error
+  and type page_aligned_buffer = Cstruct.t
 ) = struct
   type t = {
     device: B.t;
@@ -54,6 +55,8 @@ module Make (B: BLOCK_DEVICE
     | `Unknown_error of string
     | `Block_device of block_device_error
   ]
+
+  type page_aligned_buffer = Cstruct.t
 
   type stat = {
     filename: string;
