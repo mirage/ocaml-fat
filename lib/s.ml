@@ -20,6 +20,10 @@ and type 'a io = 'a Lwt.t
 
 module type IO_PAGE = V1.IO_PAGE
 
+module type FS = V1.FS
+with type page_aligned_buffer = Cstruct.t
+and type 'a io = 'a Lwt.t
+
 module Error = struct
 
   let to_string = function
@@ -41,64 +45,5 @@ module Error = struct
       Printf.sprintf "Unknown_error: %s" x
     | `Block_device _ ->
       Printf.sprintf "Block device error"
-end
-
-module type FS = sig
-
-  type block_device_error
-
-  type error = [
-    | `Not_a_directory of string
-    | `Is_a_directory of string
-    | `Directory_not_empty of string
-    | `No_directory_entry of string * string
-    | `File_already_exists of string
-    | `No_space
-    | `Format_not_recognised of string
-    | `Unknown_error of string
-    | `Block_device of block_device_error
-  ]
-
-  include V1.DEVICE with
-    type error := error
-
-  (** Abstract type for a page-aligned memory buffer *)
-  type page_aligned_buffer
-
-  type stat = {
-    filename: string;
-    read_only: bool;
-    directory: bool;
-    size: int64;
-  }
-
-  val format: t -> int64 -> [ `Ok of unit | `Error of error ] io
-  (** [format size] erases the contents of [t] and creates an empty filesystem
-      of size [size] bytes *)
-
-  val create: t -> string -> [ `Ok of unit | `Error of error ] io
-  (** [create t path] creates an empty file at [path] *)
-
-  val mkdir: t -> string -> [ `Ok of unit | `Error of error ] io
-  (** [mkdir t path] creates an empty directory at [path] *)
-
-  val destroy: t -> string -> [ `Ok of unit | `Error of error ] io
-  (** [destroy t path] removes a [path] on filesystem [t] *)
-
-  val stat: t -> string -> [ `Ok of stat | `Error of error ] io
-  (** [stat t path] returns information about file or directory at [path] *)
-
-  val listdir: t -> string -> [ `Ok of string list | `Error of error ] io
-  (** [listdir t path] returns the names of files within the directory [path]
-      or the error `Not_a_directory *)
-
-  val write: t -> string -> int -> page_aligned_buffer -> [ `Ok of unit | `Error of error ] io
-  (** [write t path offset data] writes [data] at [offset] in file [path] on
-      filesystem [t] *)
-
-  val read: t -> string -> int -> int -> [ `Ok of page_aligned_buffer list | `Error of error ] io
-  (** [read t path offset length] reads up to [length] bytes from file [path] on
-      filesystem [t]. If less data is returned than requested, this indicates
-      end-of-file. *)
 end
 
