@@ -57,6 +57,8 @@ let compose a b =
 
 let to_list m = List.rev (fold (fun _ x acc -> x :: acc) m [])
 
+let to_string m = "[ " ^ (String.concat "; " (List.map string_of_int (to_list m))) ^ " ]"
+
 let find (x: t) sector =
   if not (mem sector x) then failwith "fault";
   find sector x
