@@ -72,8 +72,8 @@ let run t =
     `Error(false, x)
   | Block_error _ ->
     `Error(false, "Unknown block device error")
-  | Fs_error _ ->
-    `Error(false, "Unknown filesystem error")
+  | Fs_error e ->
+    `Error(false, Error.to_string e)
 
 let create common filename size =
   let t =
@@ -115,7 +115,15 @@ let add common filename files =
       | Lwt_unix.S_REG ->
         Printf.fprintf stderr "copyin %s to %s\n%!" outside_path inside_path;
         Filesystem.create fs inside_path >>*= fun _ ->
-        copy_file_in fs outside_path inside_path
+        Filesystem.listdir fs (Filename.dirname inside_path) >>*= fun xs ->
+        if not(List.mem (Filename.basename inside_path) xs)
+        then fail (Failure (Printf.sprintf "listdir(%s) = [ %s ], doesn't include '%s'(%d)"
+          (Filename.dirname inside_path)
+          (String.concat ", " (List.map (fun x -> Printf.sprintf "'%s'(%d)" x (String.length x)) xs))
+          (Filename.basename inside_path)
+          (String.length (Filename.basename inside_path))
+        ))
+        else copy_file_in fs outside_path inside_path
       | Lwt_unix.S_DIR ->
         let children = Array.to_list (Sys.readdir outside_path) in
         Filesystem.mkdir fs inside_path >>*= fun _ ->
@@ -124,4 +132,37 @@ let add common filename files =
         Printf.fprintf stderr "Skipping file: %s\n%!" outside_path;
         return () in
     Lwt_list.iter_s (copyin "" "/") files in
+  run t
+
+let list common filename =
+  let t =
+    Block.connect filename >>|= fun device ->
+    Filesystem.connect device >>*= fun fs ->
+    let rec loop curdir =
+      Filesystem.listdir fs curdir >>*= fun children ->
+      Lwt_list.iter_s
+        (fun child ->
+          let path = Filename.concat curdir child in
+          Filesystem.stat fs path >>*= fun stats ->
+          Printf.printf "%s (%s)(%Ld bytes)\n" path
+            (if stats.Filesystem.directory then "DIR" else "FILE") stats.Filesystem.size;
+          if stats.Filesystem.directory
+          then loop path
+          else return ()
+        ) children in
+    loop "/" in
+  run t
+
+let cat common filename path =
+  let t =
+    Block.connect filename >>|= fun device ->
+    Filesystem.connect device >>*= fun fs ->
+    let rec loop offset =
+      Filesystem.read fs path offset 1024 >>*= fun bufs ->
+      List.iter (fun x -> print_string (Cstruct.to_string x)) bufs;
+      let copied = List.fold_left (+) 0 (List.map Cstruct.len bufs) in
+      if copied < 1024
+      then return ()
+      else loop (offset + copied) in
+    loop 0 in
   run t

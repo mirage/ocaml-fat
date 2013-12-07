@@ -90,7 +90,7 @@ val compute_checksum: dos -> int
 val make: ?read_only:bool -> ?system:bool -> ?subdir:bool -> string -> r
 
 val to_string: r -> string
-(** [to_string r] returns a canonical version of the name *)
+(** [to_string r] returns a canonical version of the name in UTF-8 *)
 
 val to_pretty_string: r -> string
 (** [to_pretty_string r] returns a pretty version of the filename,

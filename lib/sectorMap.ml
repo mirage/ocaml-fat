@@ -28,8 +28,8 @@ type byte_range = int * t * int
 
 let byte_range bps start len =
   let start_sector = start / bps in
-  let end_sector = (start + len) / bps in
-  let preceeding = start - (start * bps) in
+  let end_sector = (start + len - 1) / bps in
+  let preceeding = start - (start_sector * bps) in
   let succeeding = bps - (start + len - end_sector * bps) in
   let rec loop acc i =
     if i > end_sector
@@ -56,6 +56,8 @@ let compose a b =
     else find x b) a
 
 let to_list m = List.rev (fold (fun _ x acc -> x :: acc) m [])
+
+let to_string m = "[ " ^ (String.concat "; " (List.map string_of_int (to_list m))) ^ " ]"
 
 let find (x: t) sector =
   if not (mem sector x) then failwith "fault";

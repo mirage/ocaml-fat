@@ -34,7 +34,7 @@ module Error = struct
     | `Directory_not_empty x ->
       Printf.sprintf "Directory_not_empty %s" x
     | `No_directory_entry (x, y) ->
-      Printf.sprintf "No_directory_entry %s %s" x y
+      Printf.sprintf "There is no entry named '%s' in directory '%s'" y x
     | `File_already_exists x ->
       Printf.sprintf "File_already_exists %s" x
     | `No_space ->

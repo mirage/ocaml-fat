@@ -48,6 +48,9 @@ val compose: t -> t -> t
 val to_list: t -> int list
 (** [to_list t] returns the values of [t], ordered by keys *)
 
+val to_string: t -> string
+(** [to_string t] returns a printable version of [t] *)
+
 val find: t -> int -> int
 (** [find x sector] returns the physical address on disk corresponding to the
     virtual sector [sector] according to SectorMap [x] *)

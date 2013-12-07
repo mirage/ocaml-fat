@@ -235,6 +235,73 @@ let interesting_filenames = [
   "/FOO/BAR.TXT"; 
 ] 
 
+let test_listdir () =
+  let t =
+    let open BlockError in
+    MemoryIO.connect "" >>= fun device ->
+    let open FsError in  
+    MemFS.connect device >>= fun fs ->
+    MemFS.format fs (Int64.mul 16L mib) >>= fun () ->
+    let filename = "hello" in
+    MemFS.create fs filename >>= fun () ->
+    MemFS.listdir fs "/" >>= fun all ->
+    if List.mem filename all
+    then return ()
+    else fail (Failure (Printf.sprintf "Looking for '%s' in directory, contents [ %s ]" filename
+      (String.concat ", " (List.map (fun x -> Printf.sprintf "'%s'(%d)" x (String.length x)) all)))) in
+  Lwt_main.run t
+
+let test_listdir_subdir () =
+  let t =
+    let open BlockError in
+    MemoryIO.connect "" >>= fun device ->
+    let open FsError in  
+    MemFS.connect device >>= fun fs ->
+    MemFS.format fs (Int64.mul 16L mib) >>= fun () ->
+    let dirname = "hello" in
+    MemFS.mkdir fs dirname >>= fun () ->
+    MemFS.listdir fs "/" >>= fun all ->
+    ( if List.mem dirname all
+    then return (`Ok ())
+    else return (`Error (`Unknown_error (Printf.sprintf "Looking for '%s' in / directory, contents [ %s ]" dirname
+      (String.concat ", " (List.map (fun x -> Printf.sprintf "'%s'(%d)" x (String.length x)) all))))) ) >>= fun () ->
+    let filename = "there" in
+    let path = Filename.concat dirname filename in
+    MemFS.create fs path >>= fun () ->
+    MemFS.listdir fs dirname >>= fun all ->
+    ( if List.mem filename all
+    then return ()
+    else fail (Failure (Printf.sprintf "Looking for '%s' in %s directory, contents [ %s ]" filename dirname
+      (String.concat ", " (List.map (fun x -> Printf.sprintf "'%s'(%d)" x (String.length x)) all)))) )
+  in
+  Lwt_main.run t
+
+let test_read () =
+  let t =
+    let open BlockError in
+    MemoryIO.connect "" >>= fun device ->
+    let open FsError in  
+    MemFS.connect device >>= fun fs ->
+    MemFS.format fs (Int64.mul 16L mib) >>= fun () ->
+    let filename = "hello" in
+    let length = 512 in
+    MemFS.create fs filename >>= fun () ->
+    let buffer = make_pattern "basic writing test " length in
+    MemFS.write fs filename 0 buffer >>= fun () ->
+    MemFS.read fs filename 0 length >>= fun buffers ->
+    let count buffers = List.fold_left (+) 0 (List.map Cstruct.len buffers) in
+    assert_equal ~printer:string_of_int length (count buffers);
+    MemFS.read fs filename 0 (length * 2) >>= fun buffers ->
+    assert_equal ~printer:string_of_int length (count buffers);
+    MemFS.read fs filename 1 (length * 2) >>= fun buffers ->
+    assert_equal ~printer:string_of_int (length - 1) (count buffers);
+    MemFS.read fs filename 1 (length - 2) >>= fun buffers ->
+    assert_equal ~printer:string_of_int (length - 2) (count buffers);
+    MemFS.read fs filename length length >>= fun buffers ->
+    assert_equal ~printer:string_of_int 0 (count buffers);
+    return () in
+  Lwt_main.run t
+
 (* Very simple, easy sector-aligned writes. Tests that
    read(write(data)) = data; and that files are extended properly *)
 let test_write ((filename: string), (offset, length)) () =
@@ -289,6 +356,9 @@ let _ =
     "test_root_list" >:: test_root_list;
     "test_chains" >:: test_chains;
     "test_create" >:: test_create;
+    "test_listdir" >:: test_listdir;
+    "test_listdir_subdir" >:: test_listdir_subdir;
+    "test_read" >:: test_read;
   ] @ write_tests in
   run_test_tt ~verbose:!verbose suite
 
