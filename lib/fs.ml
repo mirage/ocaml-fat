@@ -435,12 +435,15 @@ let make size =
     let bps = fs.boot.Boot_sector.bytes_per_sector in
     let the_file = SectorMap.make (sectors_of_file fs f) in
     (* If the file is small, truncate length *)
-    let length = min length (Int32.to_int file_size - the_start) in
-    let preceeding, requested, succeeding = SectorMap.byte_range bps the_start length in
-    let to_read = SectorMap.compose requested the_file in
-    read_sectors device (SectorMap.to_list to_read) >>= fun buffer ->
-    let buffer = Cstruct.sub buffer preceeding (Cstruct.len buffer - preceeding - succeeding) in
-    return buffer
+    let length = max 0 (min length (Int32.to_int file_size - the_start)) in
+    if length = 0
+    then return []
+    else
+      let preceeding, requested, succeeding = SectorMap.byte_range bps the_start length in
+      let to_read = SectorMap.compose requested the_file in
+      read_sectors device (SectorMap.to_list to_read) >>= fun buffer ->
+      let buffer = Cstruct.sub buffer preceeding (Cstruct.len buffer - preceeding - succeeding) in
+      return [ buffer ]
 
   let read x path the_start length =
     let path = Path.of_string path in
@@ -449,7 +452,7 @@ let make size =
         | `Ok (Dir _) -> return (`Error (`Is_a_directory (Path.to_string path)))
         | `Ok (File f) ->
           read_file x.device fs f the_start length >>= fun buffer ->
-          return (`Ok [buffer])
+          return (`Ok buffer)
         | `Error x -> return (`Error x)
     )
 end
