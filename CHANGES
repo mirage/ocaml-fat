@@ -1,2 +1,7 @@
+0.6.0 (7-Dec-2013)
+* add a command-line tool for maniplating images ('fat')
+* functorise over the mirage V1 BLOCK_DEVICE and IO_PAGE
+* implements the mirage V1 type FS
+
 0.5.0 (2-Dec-2013)
 * Initial version of fat-filesystem
