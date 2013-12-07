@@ -293,6 +293,10 @@ let test_read () =
     assert_equal ~printer:string_of_int length (count buffers);
     MemFS.read fs filename 0 (length * 2) >>= fun buffers ->
     assert_equal ~printer:string_of_int length (count buffers);
+    MemFS.read fs filename 1 (length * 2) >>= fun buffers ->
+    assert_equal ~printer:string_of_int (length - 1) (count buffers);
+    MemFS.read fs filename 1 (length - 2) >>= fun buffers ->
+    assert_equal ~printer:string_of_int (length - 2) (count buffers);
     MemFS.read fs filename length length >>= fun buffers ->
     assert_equal ~printer:string_of_int 0 (count buffers);
     return () in
