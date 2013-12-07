@@ -156,6 +156,14 @@ let ascii_to_utf16 x =
   results.[l*2+1] <- char_of_int 0;
   results
 
+(* XXX: this code is bad and I should feel bad. Replace with 'uutf' *)
+let utf16_to_ascii s =
+  let result = String.make (String.length s / 2) 'X' in
+  for i = 0 to String.length result - 1 do
+    result.[i] <- s.[i * 2];
+  done;
+  result
+
 (** Returns the checksum corresponding to the 8.3 DOS filename *)
 let compute_checksum x =
   let y = add_padding ' ' 8 x.filename ^ (add_padding ' ' 3 x.ext) in
@@ -220,6 +228,7 @@ let trim_utf16 x =
   let chars = ref (String.length x / 2) in
   for i = 0 to String.length x / 2 - 1 do
     let a = int_of_char x.[i * 2] and b = int_of_char x.[i * 2 + 1] in
+    if a = 0x00 && b = 0x00 && i < !chars then chars := i;
     if a = 0xff && b = 0xff && i < !chars then chars := i
   done;
   String.sub x 0 (!chars * 2)
@@ -236,7 +245,8 @@ let to_pretty_string x =
 let to_string x =
   let d = snd x.dos in
   let y = trim_utf16 x.utf_filename in
-  if y = "" then d.filename ^ "." ^ d.ext else y
+  let z = utf16_to_ascii y in
+  if z = "" then d.filename ^ "." ^ d.ext else z
 
 let int_to_hms time =
   let hours = ((time lsr 11) land 0b11111) in
