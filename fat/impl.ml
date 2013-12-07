@@ -115,7 +115,15 @@ let add common filename files =
       | Lwt_unix.S_REG ->
         Printf.fprintf stderr "copyin %s to %s\n%!" outside_path inside_path;
         Filesystem.create fs inside_path >>*= fun _ ->
-        copy_file_in fs outside_path inside_path
+        Filesystem.listdir fs (Filename.dirname inside_path) >>*= fun xs ->
+        if not(List.mem (Filename.basename inside_path) xs)
+        then fail (Failure (Printf.sprintf "listdir(%s) = [ %s ], doesn't include '%s'(%d)"
+          (Filename.dirname inside_path)
+          (String.concat ", " (List.map (fun x -> Printf.sprintf "'%s'(%d)" x (String.length x)) xs))
+          (Filename.basename inside_path)
+          (String.length (Filename.basename inside_path))
+        ))
+        else copy_file_in fs outside_path inside_path
       | Lwt_unix.S_DIR ->
         let children = Array.to_list (Sys.readdir outside_path) in
         Filesystem.mkdir fs inside_path >>*= fun _ ->
@@ -136,7 +144,8 @@ let list common filename =
         (fun child ->
           let path = Filename.concat curdir child in
           Filesystem.stat fs path >>*= fun stats ->
-          Printf.printf "%s (%Ld)\n" path stats.Filesystem.size;
+          Printf.printf "%s (%s)(%Ld bytes)\n" path
+            (if stats.Filesystem.directory then "DIR" else "FILE") stats.Filesystem.size;
           if stats.Filesystem.directory
           then loop path
           else return ()
