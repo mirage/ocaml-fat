@@ -153,3 +153,16 @@ let list common filename =
     loop "/" in
   run t
 
+let cat common filename path =
+  let t =
+    Block.connect filename >>|= fun device ->
+    Filesystem.connect device >>*= fun fs ->
+    let rec loop offset =
+      Filesystem.read fs path offset 1024 >>*= fun bufs ->
+      List.iter (fun x -> print_string (Cstruct.to_string x)) bufs;
+      let copied = List.fold_left (+) 0 (List.map Cstruct.len bufs) in
+      if copied < 1024
+      then return ()
+      else loop (offset + copied) in
+    loop 0 in
+  run t
