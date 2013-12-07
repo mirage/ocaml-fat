@@ -68,13 +68,22 @@ let add_cmd =
   Term.(ret(pure Impl.add $ common_options_t $ filename $ files)),
   Term.info "add" ~sdocs:_common_options ~doc ~man
 
+let list_cmd =
+  let doc = "list files in a FAT image" in
+  let man = [
+    `S "DESCRIPTION";
+    `P "List the set of files contained within a FAT filesystem image."
+  ] @ help in
+  Term.(ret(pure Impl.list $ common_options_t $ filename)),
+  Term.info "list" ~sdocs:_common_options ~doc ~man
+
 let default_cmd = 
   let doc = "manipulate FAT filesystem images" in
   let man = help in
   Term.(ret (pure (fun _ -> `Help (`Pager, None)) $ common_options_t)),
   Term.info "fat" ~version:"1.0.0" ~sdocs:_common_options ~doc ~man
        
-let cmds = [create_cmd; add_cmd]
+let cmds = [create_cmd; add_cmd; list_cmd]
 
 let _ =
   match Term.eval_choice default_cmd cmds with 
