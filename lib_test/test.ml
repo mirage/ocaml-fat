@@ -235,6 +235,22 @@ let interesting_filenames = [
   "/FOO/BAR.TXT"; 
 ] 
 
+let test_listdir () =
+  let t =
+    let open BlockError in
+    MemoryIO.connect "" >>= fun device ->
+    let open FsError in  
+    MemFS.connect device >>= fun fs ->
+    MemFS.format fs (Int64.mul 16L mib) >>= fun () ->
+    let filename = "hello" in
+    MemFS.create fs filename >>= fun () ->
+    MemFS.listdir fs "/" >>= fun all ->
+    if List.mem filename all
+    then return ()
+    else fail (Failure (Printf.sprintf "Looking for '%s' in directory, contents [ %s ]" filename
+      (String.concat ", " (List.map (fun x -> Printf.sprintf "'%s'(%d)" x (String.length x)) all)))) in
+  Lwt_main.run t
+
 (* Very simple, easy sector-aligned writes. Tests that
    read(write(data)) = data; and that files are extended properly *)
 let test_write ((filename: string), (offset, length)) () =
@@ -289,6 +305,7 @@ let _ =
     "test_root_list" >:: test_root_list;
     "test_chains" >:: test_chains;
     "test_create" >:: test_create;
+    "test_listdir" >:: test_listdir;
   ] @ write_tests in
   run_test_tt ~verbose:!verbose suite
 
