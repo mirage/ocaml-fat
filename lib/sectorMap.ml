@@ -28,8 +28,8 @@ type byte_range = int * t * int
 
 let byte_range bps start len =
   let start_sector = start / bps in
-  let end_sector = (start + len) / bps in
-  let preceeding = start - (start * bps) in
+  let end_sector = (start + len - 1) / bps in
+  let preceeding = start - (start_sector * bps) in
   let succeeding = bps - (start + len - end_sector * bps) in
   let rec loop acc i =
     if i > end_sector
