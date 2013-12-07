@@ -276,6 +276,28 @@ let test_listdir_subdir () =
   in
   Lwt_main.run t
 
+let test_read () =
+  let t =
+    let open BlockError in
+    MemoryIO.connect "" >>= fun device ->
+    let open FsError in  
+    MemFS.connect device >>= fun fs ->
+    MemFS.format fs (Int64.mul 16L mib) >>= fun () ->
+    let filename = "hello" in
+    let length = 512 in
+    MemFS.create fs filename >>= fun () ->
+    let buffer = make_pattern "basic writing test " length in
+    MemFS.write fs filename 0 buffer >>= fun () ->
+    MemFS.read fs filename 0 length >>= fun buffers ->
+    let count buffers = List.fold_left (+) 0 (List.map Cstruct.len buffers) in
+    assert_equal ~printer:string_of_int length (count buffers);
+    MemFS.read fs filename 0 (length * 2) >>= fun buffers ->
+    assert_equal ~printer:string_of_int length (count buffers);
+    MemFS.read fs filename length length >>= fun buffers ->
+    assert_equal ~printer:string_of_int 0 (count buffers);
+    return () in
+  Lwt_main.run t
+
 (* Very simple, easy sector-aligned writes. Tests that
    read(write(data)) = data; and that files are extended properly *)
 let test_write ((filename: string), (offset, length)) () =
@@ -332,6 +354,7 @@ let _ =
     "test_create" >:: test_create;
     "test_listdir" >:: test_listdir;
     "test_listdir_subdir" >:: test_listdir_subdir;
+    "test_read" >:: test_read;
   ] @ write_tests in
   run_test_tt ~verbose:!verbose suite
 
