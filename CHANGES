@@ -1,3 +1,6 @@
+0.6.1 (8-Dec-2013)
+* install the 'fat' CLI tool by default
+
 0.6.0 (7-Dec-2013)
 * add a command-line tool for maniplating images ('fat')
 * functorise over the mirage V1 BLOCK_DEVICE and IO_PAGE
