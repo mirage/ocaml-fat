@@ -1,8 +1,10 @@
 .PHONY: all clean install build
 all: build doc
 
-NAME=fat-format
+NAME=fat-filesystem
 J=4
+
+include config.mk
 
 export OCAMLRUNPARAM=b
 
@@ -21,9 +23,11 @@ doc: setup.data setup.bin
 
 install: setup.bin
 	@./setup.bin -install
+	cp ./_build/fat/main.native $(BINDIR)/fat
 
 uninstall:
 	@ocamlfind remove $(NAME) || true
+	rm -f $(BINDIR)/fat
 
 test: setup.bin build
 	@./setup.bin -test
