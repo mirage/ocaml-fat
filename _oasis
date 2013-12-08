@@ -20,7 +20,7 @@ Executable fat
   Path:               fat
   MainIs:             main.ml
   Custom:             true
-  Install:            true
+  Install:            false
   BuildDepends:       fat-filesystem, mirage-block-unix, cmdliner, io-page-unix
 
 Executable shell
