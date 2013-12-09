@@ -1,6 +1,6 @@
 # OASIS_START
-# DO NOT EDIT (digest: 5d0547f6723de354bb8634cf15ee5375)
-version = "0.6.1"
+# DO NOT EDIT (digest: e225cdef458bb3e7ebaa3cfdd3ead5c7)
+version = "0.7.0"
 description = "FAT filesystem manipulation"
 requires = "cstruct re re.str mirage-types lwt"
 archive(byte) = "fat.cma"

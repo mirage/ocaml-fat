@@ -39,3 +39,8 @@ reinstall: setup.bin
 clean:
 	@ocamlbuild -clean
 	@rm -f setup.data setup.log setup.bin
+
+# If we haven't run configure already, run it now with the
+# defaults.
+config.mk:
+	./configure

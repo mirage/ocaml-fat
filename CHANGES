@@ -1,3 +1,8 @@
+0.7.0 (9-Dec-2013):
+* update to V1.BLOCK with 'id' interface
+* fix 'make uninstall' (doesn't fail if configure hasn't
+  been run)
+
 0.6.1 (8-Dec-2013)
 * install the 'fat' CLI tool by default
 

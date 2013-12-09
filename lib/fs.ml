@@ -42,6 +42,8 @@ module Make (B: BLOCK_DEVICE
 
   type id = B.t
 
+  let id t = t.device
+
   type block_device_error = B.error
 
   type error = [
