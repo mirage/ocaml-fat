@@ -56,6 +56,10 @@ let create_cmd =
     `S "DESCRIPTION";
     `P "Create an empty FAT filesystem";
   ] @ help in
+  (* can't use 'file' because it won't exist yet *)
+  let filename =
+    let doc = Printf.sprintf "Path to the FAT image file." in
+    Arg.(value & pos 0 string "fat.img" & info [] ~doc) in
   let size =
     let doc = "Size of the image" in
     Arg.(value & pos 1 int64 Int64.(mul 16L (mul 1024L 1024L)) & info [] ~doc) in
