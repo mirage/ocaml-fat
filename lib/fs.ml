@@ -76,29 +76,40 @@ module Make (B: BLOCK_DEVICE
     let pages = M.(to_cstruct (get ((bytes + 4095) / 4096))) in
     Cstruct.sub pages 0 bytes
 
-  let read_sectors device xs =
+  (* TODO: this function performs extra data copies *)
+  let read_sectors bps device xs =
     let buf = alloc (List.length xs * 512) in
     let rec split buf =
       if Cstruct.len buf = 0 then []
       else if Cstruct.len buf <= 512 then [ buf ]
       else Cstruct.sub buf 0 512 :: (split (Cstruct.shift buf 512)) in
 
+    let page = alloc 4096 in
+    B.get_info device >>= fun info ->
     let rec loop = function
       | [] -> return ()
       | (sector, buffer) :: xs ->
-        B.read device (Int64.of_int sector) [ buffer ] >>|= fun () ->
+        let offset = sector * bps in
+        let sector' = offset / info.B.sector_size in
+        B.read device (Int64.of_int sector') [ page ] >>|= fun () ->
+        Cstruct.blit page (offset mod info.B.sector_size) buffer 0 512;
         loop xs in
     loop (List.combine xs (split buf)) >>= fun () ->
     return buf
 
   let write_update device fs ({ Update.offset = offset; data = data } as update) =
+    B.get_info device >>= fun info ->
     let bps = fs.boot.Boot_sector.bytes_per_sector in
     let sector_number = Int64.(div offset (of_int bps)) in
     let sector_offset = Int64.(sub offset (mul sector_number (of_int bps))) in
-    let sector = alloc 512 in
-    B.read device sector_number [ sector ] >>|= fun () ->
+    (* number of 512-byte FAT sectors per physical disk sectors *)
+    let sectors_per_block = info.B.sector_size / bps in
+    let page = alloc 4096 in
+    let sector_number' = Int64.(div sector_number (of_int sectors_per_block)) in
+    B.read device sector_number' [ page ] >>|= fun () ->
+    let sector = Cstruct.sub page (Int64.(to_int (rem sector_number (of_int sectors_per_block))) * bps) bps in
     Update.apply sector { update with Update.offset = sector_offset };
-    B.write device sector_number [ sector ] >>|= fun () ->
+    B.write device sector_number' [ page ] >>|= fun () ->
     return ()
 
 let make size =
@@ -139,7 +150,9 @@ let make size =
     return (`Ok ())
 
   let connect device =
-    let sector = alloc 512 in
+    let page = alloc 4096 in
+    B.get_info device >>= fun info ->
+    let sector = Cstruct.sub page 0 info.B.sector_size in
     B.read device 0L [ sector ] >>|= fun () ->
     ( match Boot_sector.unmarshal sector with
       | `Error _ -> return None
@@ -147,8 +160,8 @@ let make size =
         match Boot_sector.detect_format boot with
         | `Error reason -> return None
         | `Ok format ->
-          read_sectors device (Boot_sector.sectors_of_fat boot) >>= fun fat ->
-          read_sectors device (Boot_sector.sectors_of_root_dir boot) >>= fun root ->
+          read_sectors boot.Boot_sector.bytes_per_sector device (Boot_sector.sectors_of_fat boot) >>= fun fat ->
+          read_sectors boot.Boot_sector.bytes_per_sector device (Boot_sector.sectors_of_root_dir boot) >>= fun root ->
           return (Some { boot; format; fat; root }) ) >>= fun fs ->
     return (`Ok { device; fs })
 
@@ -164,7 +177,7 @@ let make size =
     Entry.Chain.(to_sectors fs.boot (follow fs.format fs.fat cluster))
 
   let read_whole_file device fs { Name.dos = _, ({ Name.file_size = file_size; subdir = subdir } as f) } =
-    read_sectors device (sectors_of_file fs f)
+    read_sectors fs.boot.Boot_sector.bytes_per_sector device (sectors_of_file fs f)
 
   (** [find device fs path] returns a [find_result] corresponding to the object
       stored at [path] *)
@@ -306,7 +319,7 @@ let make size =
       | `Ok (Dir ds) ->
         Location.of_file device fs parent_path >>= fun location ->
         let sectors = Location.to_sectors fs location in
-        read_sectors device sectors >>= fun contents ->
+        read_sectors fs.boot.Boot_sector.bytes_per_sector device sectors >>= fun contents ->
 	f contents ds >>= fun updates ->
         Lwt_list.iter_s (write_to_location device fs parent_path location) updates
 
@@ -443,7 +456,7 @@ let make size =
     else
       let preceeding, requested, succeeding = SectorMap.byte_range bps the_start length in
       let to_read = SectorMap.compose requested the_file in
-      read_sectors device (SectorMap.to_list to_read) >>= fun buffer ->
+      read_sectors fs.boot.Boot_sector.bytes_per_sector device (SectorMap.to_list to_read) >>= fun buffer ->
       let buffer = Cstruct.sub buffer preceeding (Cstruct.len buffer - preceeding - succeeding) in
       return [ buffer ]
 
