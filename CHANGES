@@ -1,5 +1,6 @@
 0.8.0 (9-Dec-2013):
 * cope with block devices whose sector size isn't 512 bytes
+* allow 'fat create <filename>'
 
 0.7.0 (9-Dec-2013):
 * update to V1.BLOCK with 'id' interface
