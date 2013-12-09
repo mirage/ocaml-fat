@@ -14,7 +14,7 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-module type BLOCK_DEVICE = V1.BLOCK.CLIENT
+module type BLOCK_DEVICE = V1.BLOCK
 with type page_aligned_buffer = Cstruct.t
 and type 'a io = 'a Lwt.t
 

@@ -42,7 +42,10 @@ module Int64Map = Map.Make(Int64)
 type t = {
   mutable map: page_aligned_buffer Int64Map.t;
   info: info;
+  id: id;
 }
+
+let id t = t.id
 
 let devices = Hashtbl.create 1
 
@@ -58,7 +61,7 @@ let connect name =
       sector_size = 512;
       size_sectors = 32768L; (* 16 MiB *)
     } in
-    let device = { map; info } in
+    let device = { map; info; id = name } in
     Hashtbl.replace devices name device;
     return (`Ok device)
 
