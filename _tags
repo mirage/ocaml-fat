@@ -96,3 +96,4 @@
 <lib/boot_sector.ml>: syntax_camlp4o, pkg_cstruct.syntax
 <lib/entry.ml>: syntax_camlp4o, pkg_cstruct.syntax
 <lib/name.ml>: syntax_camlp4o, pkg_cstruct.syntax
+true: annot, bin_annot, principal
