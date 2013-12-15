@@ -1,7 +1,7 @@
 # OASIS_START
-# DO NOT EDIT (digest: acd78055df9c34e9af49eb409cd9f823)
-# Ignore VCS directories, you can use the same kind of rule outside 
-# OASIS_START/STOP if you want to exclude directories that contains 
+# DO NOT EDIT (digest: 1fa08ffd4a2f317d852a7b1af14b9ece)
+# Ignore VCS directories, you can use the same kind of rule outside
+# OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
 <**/.svn>: -traverse
 <**/.svn>: not_hygienic
@@ -26,6 +26,7 @@
 "lib/result.cmx": for-pack(Fat)
 "lib/memoryIO.cmx": for-pack(Fat)
 "lib/s.cmx": for-pack(Fat)
+"lib/KV_RO.cmx": for-pack(Fat)
 <lib/*.ml{,i}>: pkg_lwt
 <lib/*.ml{,i}>: pkg_cstruct
 <lib/*.ml{,i}>: pkg_re
