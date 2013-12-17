@@ -1,8 +1,8 @@
 OASISFormat: 0.3
 Name:        fat-filesystem
-Version:     0.8.0
+Version:     0.9.0
 Synopsis:    FAT filesystem manipulation
-Authors:     David Scott
+Authors:     David Scott, Anil Madhavapeddy
 License:     ISC
 Plugins:     META (0.3)
 BuildTools:  ocamlbuild
@@ -12,7 +12,7 @@ Library fat
   CompiledObject:     best
   Path:               lib
   Findlibname:        fat-filesystem
-  Modules:            Fat_format, Boot_sector, Entry, Name, Path, Fs, Update, SectorMap, Result, MemoryIO, S
+  Modules:            Fat_format, Boot_sector, Entry, Name, Path, Fs, Update, SectorMap, Result, MemoryIO, S, KV_RO
   BuildDepends:       cstruct, re, re.str, mirage-types, lwt
 
 Executable fat
