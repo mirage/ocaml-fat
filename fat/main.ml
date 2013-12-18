@@ -39,8 +39,11 @@ let common_options_t =
   let verb =
     let doc = "Give verbose output." in
     let verbose = true, Arg.info ["v"; "verbose"] ~docs ~doc in 
-    Arg.(last & vflag_all [false] [verbose]) in 
-  Term.(pure Common.make $ debug $ verb)
+    Arg.(last & vflag_all [false] [verbose]) in
+  let unbuffered =
+    let doc = "Use unbuffered I/O (via O_DIRECT)." in
+    Arg.(value & flag & info ["unbuffered"] ~docs ~doc) in
+  Term.(pure Common.make $ debug $ verb $ unbuffered)
 
 let filename =
   let doc = Printf.sprintf "Path to the FAT image file." in

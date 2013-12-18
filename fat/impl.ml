@@ -75,6 +75,11 @@ let run t =
   | Fs_error e ->
     `Error(false, Error.to_string e)
 
+let buffered common filename =
+  if common.unbuffered
+  then filename
+  else "buffered:" ^ filename
+
 let create common filename size =
   let t =
     ( if Sys.file_exists filename
@@ -91,7 +96,7 @@ let create common filename size =
     Block.really_write fd sector >>= fun () ->
     Lwt_unix.close fd >>= fun () ->
 
-    Block.connect filename >>|= fun device ->
+    Block.connect (buffered common filename) >>|= fun device ->
     Filesystem.connect device >>*= fun fs ->
     if common.verb then Printf.printf "Created %s\n%!" filename;
     Filesystem.format fs size >>*= fun () ->
@@ -104,7 +109,7 @@ let add common filename files =
   let files = List.tl files in
   Printf.fprintf stderr "add %s <- [ %s ]\n%!" filename (String.concat "; " files);
   let t =
-    Block.connect filename >>|= fun device ->
+    Block.connect (buffered common filename) >>|= fun device ->
     if common.verb then Printf.printf "Opened %s\n%!" filename;
     Filesystem.connect device >>*= fun fs ->
     let rec copyin outside_path inside_path file =
@@ -136,7 +141,7 @@ let add common filename files =
 
 let list common filename =
   let t =
-    Block.connect filename >>|= fun device ->
+    Block.connect (buffered common filename) >>|= fun device ->
     Filesystem.connect device >>*= fun fs ->
     let rec loop curdir =
       Filesystem.listdir fs curdir >>*= fun children ->
@@ -155,7 +160,7 @@ let list common filename =
 
 let cat common filename path =
   let t =
-    Block.connect filename >>|= fun device ->
+    Block.connect (buffered common filename) >>|= fun device ->
     Filesystem.connect device >>*= fun fs ->
     let rec loop offset =
       Filesystem.read fs path offset 1024 >>*= fun bufs ->
