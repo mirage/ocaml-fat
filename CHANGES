@@ -1,3 +1,7 @@
+0.10.0 (18-Dec-2013):
+* speed up the 'fat' CLI tool by using buffered I/O by default.
+  This requires mirage-block-unix.1.2.0
+
 0.9.0 (15-Dec-2013):
 * add `Fat.KV_RO` which is a read-only subset of the filesystem.
 * Regenerate build files with OASIS 0.4.0.
