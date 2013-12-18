@@ -17,11 +17,12 @@
 type t = {
   debug: bool;
   verb: bool;
+  unbuffered: bool;
 }
 
 
-let make debug verb =
-  { debug; verb; }
+let make debug verb unbuffered =
+  { debug; verb; unbuffered; }
 
 let ( |> ) a b = b a
 
