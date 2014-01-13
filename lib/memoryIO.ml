@@ -94,4 +94,3 @@ let rec write x sector_start buffers = match buffers with
       x.map <- Int64Map.add sector_start (Cstruct.sub b 0 512) x.map;
       write x (Int64.succ sector_start) (Cstruct.shift b 512 :: bs)
     end
-

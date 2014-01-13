@@ -105,7 +105,7 @@ let legal_dos_char = function
   | 'A' .. 'Z'
   | '0' .. '9'
   | ' '
-  | '!' | '#' | '$' | '%' | '&' | '\'' | '(' | ')' 
+  | '!' | '#' | '$' | '%' | '&' | '\'' | '(' | ')'
   | '-' | '@' | '^' | '_' | '`' | '{'  | '}' | '~' -> true
   | c -> int_of_char c >= 128
 
@@ -473,7 +473,7 @@ let next bits =
    inner (blocks bits)
 
 (** [add block t] return the update required to add [t] to the directory [block].
-    Note the update may be beyond the end of [block] indicating more space needs 
+    Note the update may be beyond the end of [block] indicating more space needs
     to be allocated. *)
 let add block r =
   let after_block = Cstruct.len block in

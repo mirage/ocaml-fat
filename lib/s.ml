@@ -46,4 +46,3 @@ module Error = struct
     | `Block_device _ ->
       Printf.sprintf "Block device error"
 end
-

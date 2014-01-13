@@ -69,4 +69,3 @@ let transform_offset (x: t) sector_size vaddr =
   let psector = find x (Int64.to_int vsector) in
   let voffset = Int64.(sub vaddr (mul vsector s)) in
   Int64.(add voffset (mul (of_int psector) s))
-
