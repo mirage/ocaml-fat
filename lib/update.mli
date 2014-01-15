@@ -17,7 +17,7 @@
 type data =
   | String of string
   | Cstruct of Cstruct.t
-(** payload of a buffer update *)
+  (** payload of a buffer update *)
 
 type t = {
   offset: int64;

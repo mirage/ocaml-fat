@@ -58,9 +58,9 @@ type dos = {
 
 (** Useful for streaming entries to/from the disk *)
 type single_entry =
-| Dos of dos
-| Lfn of lfn
-| End
+  | Dos of dos
+  | Lfn of lfn
+  | End
 
 (** A high-level directory entry, complete with reconstructed UTF name and
     offsets of each individual entry on the disk *)
@@ -75,10 +75,10 @@ type r = {
 let fake_root_entry = {
   utf_filename = "";
   dos = 0, {
-    filename = ""; ext = ""; deleted = false; read_only = false;
-    hidden = false; system = false; volume = false; subdir = true; archive = false;
-    create = epoch; access = epoch; modify = epoch; start_cluster = 0; file_size = 0l
-  };
+      filename = ""; ext = ""; deleted = false; read_only = false;
+      hidden = false; system = false; volume = false; subdir = true; archive = false;
+      create = epoch; access = epoch; modify = epoch; start_cluster = 0; file_size = 0l
+    };
   lfns = []
 }
 
@@ -217,7 +217,7 @@ let make ?(read_only=false) ?(system=false) ?(subdir=false) filename =
             lfn_utf16_name = chunk;
           } in
           inner (lfn :: acc) (seq + 1) (i + 26) in
-        inner [] 1 0 in
+      inner [] 1 0 in
   {
     utf_filename = filename;
     dos = 0, dos;
@@ -403,11 +403,11 @@ let marshal (buf: Cstruct.t) t =
     set_name_ext ext 0 buf;
     let flags =
       (if x.read_only then 0x1  else 0x0) lor
-      (if x.hidden    then 0x2  else 0x0) lor
-      (if x.system    then 0x4  else 0x0) lor
-      (if x.volume    then 0x8  else 0x0) lor
-      (if x.subdir    then 0x10 else 0x0) lor
-      (if x.archive   then 0x20 else 0x0) in
+        (if x.hidden    then 0x2  else 0x0) lor
+        (if x.system    then 0x4  else 0x0) lor
+        (if x.volume    then 0x8  else 0x0) lor
+        (if x.subdir    then 0x10 else 0x0) lor
+        (if x.archive   then 0x20 else 0x0) in
     set_name_flags buf flags;
     set_name__reserved buf 0;
     set_name_create_time_ms buf create_time_ms;
@@ -437,40 +437,40 @@ let fold f initial bits =
     | [] -> acc
     | (offset, b) :: bs ->
       begin match unmarshal b with
-      | Dos { deleted = true }
-      | Lfn { lfn_deleted = true } -> inner lfns acc bs
-      | Lfn lfn -> inner ((offset, lfn) :: lfns) acc bs
-      | Dos d ->
-        let expected_checksum = compute_checksum d in
-        (* reconstruct UTF text from LFNs *)
-        let lfns = List.sort (fun a b -> compare (snd a).lfn_seq (snd b).lfn_seq) lfns in
-        List.iter
-          (fun (_, l) -> if l.lfn_checksum <> expected_checksum then begin
-             Printf.printf "Filename: %s.%s; expected_checksum = %d; actual = %d\n%!" d.filename d.ext expected_checksum l.lfn_checksum
-          end) lfns;
-        let utfs = List.rev (List.fold_left (fun acc (_, lfn) -> lfn.lfn_utf16_name :: acc) [] lfns) in
-        let reconstructed = {
-          utf_filename = String.concat "" utfs;
-          dos = offset, d;
-          lfns = lfns;
-        } in
-        let acc' = f acc offset reconstructed in
-        inner [] acc' bs
-      | End -> acc
+        | Dos { deleted = true }
+        | Lfn { lfn_deleted = true } -> inner lfns acc bs
+        | Lfn lfn -> inner ((offset, lfn) :: lfns) acc bs
+        | Dos d ->
+          let expected_checksum = compute_checksum d in
+          (* reconstruct UTF text from LFNs *)
+          let lfns = List.sort (fun a b -> compare (snd a).lfn_seq (snd b).lfn_seq) lfns in
+          List.iter
+            (fun (_, l) -> if l.lfn_checksum <> expected_checksum then begin
+                 Printf.printf "Filename: %s.%s; expected_checksum = %d; actual = %d\n%!" d.filename d.ext expected_checksum l.lfn_checksum
+               end) lfns;
+          let utfs = List.rev (List.fold_left (fun acc (_, lfn) -> lfn.lfn_utf16_name :: acc) [] lfns) in
+          let reconstructed = {
+            utf_filename = String.concat "" utfs;
+            dos = offset, d;
+            lfns = lfns;
+          } in
+          let acc' = f acc offset reconstructed in
+          inner [] acc' bs
+        | End -> acc
       end in
-    inner [] initial (blocks bits)
+  inner [] initial (blocks bits)
 
 let list = fold (fun acc _ d -> d :: acc) []
 
 let next bits =
-   let rec inner = function
-     | [] -> None
-     | (offset, b) :: bs ->
-       begin match unmarshal b with
-       | End -> Some offset
-       | _ -> inner bs
-       end in
-   inner (blocks bits)
+  let rec inner = function
+    | [] -> None
+    | (offset, b) :: bs ->
+      begin match unmarshal b with
+        | End -> Some offset
+        | _ -> inner bs
+      end in
+  inner (blocks bits)
 
 (** [add block t] return the update required to add [t] to the directory [block].
     Note the update may be beyond the end of [block] indicating more space needs
@@ -478,8 +478,8 @@ let next bits =
 let add block r =
   let after_block = Cstruct.len block in
   let next_byte = match next block with
-  | Some b -> b
-  | None -> after_block in
+    | Some b -> b
+    | None -> after_block in
   let dir_entries = to_single_entries r in
   let buf = Cstruct.create (List.length dir_entries * sizeof) in
   List.iter (fun ((_, buf), entry) -> marshal buf entry)
@@ -509,29 +509,29 @@ let remove block filename =
   | Some r ->
     let offsets = fst r.dos :: (List.map fst r.lfns) in
     List.rev (List.fold_left (fun acc offset ->
-      let b = Cstruct.sub block offset sizeof in
-      let delta = Cstruct.create sizeof in
-      begin match unmarshal b with
-      | Lfn lfn ->
-        let lfn' = { lfn with lfn_deleted = true } in
-        marshal delta (Lfn lfn')
-      | Dos dos ->
-        let dos' = { dos with deleted = true } in
-        marshal b (Dos dos')
-      | End -> assert false
-      end;
-      Update.from_cstruct (Int64.of_int offset) delta :: acc
-    ) [] offsets)
+        let b = Cstruct.sub block offset sizeof in
+        let delta = Cstruct.create sizeof in
+        begin match unmarshal b with
+          | Lfn lfn ->
+            let lfn' = { lfn with lfn_deleted = true } in
+            marshal delta (Lfn lfn')
+          | Dos dos ->
+            let dos' = { dos with deleted = true } in
+            marshal b (Dos dos')
+          | End -> assert false
+        end;
+        Update.from_cstruct (Int64.of_int offset) delta :: acc
+      ) [] offsets)
   | None -> [] (* no updates implies nothing to remove *)
 
 let modify block filename file_size start_cluster =
   fold (fun acc offset x ->
-    if not(name_match filename x)
-    then acc
-    else
-      let offset, dos = x.dos in
-      let dos' = { dos with file_size = file_size; start_cluster = start_cluster } in
-      let b = Cstruct.create sizeof in
-      marshal b (Dos dos');
-      Update.from_cstruct (Int64.of_int offset) b :: acc
-  ) [] block
+      if not(name_match filename x)
+      then acc
+      else
+        let offset, dos = x.dos in
+        let dos' = { dos with file_size = file_size; start_cluster = start_cluster } in
+        let b = Cstruct.create sizeof in
+        marshal b (Dos dos');
+        Update.from_cstruct (Int64.of_int offset) b :: acc
+    ) [] block

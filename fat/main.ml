@@ -23,11 +23,11 @@ open Cmdliner
 
 let _common_options = "COMMON OPTIONS"
 let help = [
- `S _common_options;
- `P "These options are common to all commands.";
- `S "MORE HELP";
- `P "Use `$(mname) $(i,COMMAND) --help' for help on a single command."; `Noblank;
- `S "BUGS"; `P (Printf.sprintf "Check bug reports at %s" project_url);
+  `S _common_options;
+  `P "These options are common to all commands.";
+  `S "MORE HELP";
+  `P "Use `$(mname) $(i,COMMAND) --help' for help on a single command."; `Noblank;
+  `S "BUGS"; `P (Printf.sprintf "Check bug reports at %s" project_url);
 ]
 
 (* Options common to all commands *)

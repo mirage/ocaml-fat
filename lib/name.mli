@@ -54,10 +54,10 @@ type dos = {
 (** A DOS disk entry *)
 
 type single_entry =
-| Dos of dos
-| Lfn of lfn
-| End
-(** Useful for streaming entries to/from the disk *)
+  | Dos of dos
+  | Lfn of lfn
+  | End
+  (** Useful for streaming entries to/from the disk *)
 
 type r = {
   utf_filename: string;

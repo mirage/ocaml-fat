@@ -32,7 +32,7 @@ type t = {
 }
 
 let to_string x = Printf.sprintf "Update.({ offset=%Ld data=%s })"
-  x.offset (string_of_data x.data)
+                    x.offset (string_of_data x.data)
 
 let from_string offset x = { offset; data = String x }
 let from_cstruct offset x = { offset; data = Cstruct x }

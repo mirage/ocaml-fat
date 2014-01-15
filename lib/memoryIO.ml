@@ -26,10 +26,10 @@ type page_aligned_buffer = Cstruct.t
 let alloc = Cstruct.create
 
 type error = [
-| `Unknown of string
-| `Unimplemented
-| `Is_read_only
-| `Disconnected ]
+  | `Unknown of string
+  | `Unimplemented
+  | `Is_read_only
+  | `Disconnected ]
 
 type info = {
   read_write: bool;

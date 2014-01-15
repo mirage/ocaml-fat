@@ -114,8 +114,8 @@ let debug_print x =
 
 let ints start length =
   let rec enumerate start length acc = match length with
-  | 0 -> acc
-  | _ -> enumerate (start + 1) (length - 1) (start :: acc) in
+    | 0 -> acc
+    | _ -> enumerate (start + 1) (length - 1) (start :: acc) in
   List.rev (enumerate start length [])
 
 (** Return the sector number of the first cluster *)

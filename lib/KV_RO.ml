@@ -18,8 +18,8 @@ open V1
 open Lwt
 
 module Make(FS: FS with
-       type 'a io = 'a Lwt.t
-  ) = struct
+             type 'a io = 'a Lwt.t
+           ) = struct
 
   type t = FS.t
   type +'a io = 'a Lwt.t

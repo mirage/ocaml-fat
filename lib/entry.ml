@@ -40,7 +40,7 @@ let of_fat16 n fat =
 
 let to_fat16 n fat x =
   let x' = match x with
-  | Free -> 0 | End -> 0xffff | Bad -> 0xfff7 | Used x -> x in
+    | Free -> 0 | End -> 0xffff | Bad -> 0xfff7 | Used x -> x in
   Cstruct.LE.set_uint16 fat (2 * n) x'
 
 let of_fat32 n fat =
@@ -55,7 +55,7 @@ let of_fat32 n fat =
 
 let to_fat32 n fat x =
   let x' = match x with
-  | Free -> 0l | End -> 0x0fffffffl | Bad -> 0x0ffffff7l | Used x -> Int32.of_int x in
+    | Free -> 0l | End -> 0x0fffffffl | Bad -> 0x0ffffff7l | Used x -> Int32.of_int x in
   Cstruct.LE.set_uint32 fat (4 * n) x'
 
 let of_fat12 n fat = failwith "Unimplemented"
@@ -78,24 +78,24 @@ let marshal format =
 let cluster_0 format =
   let open Fat_format in
   Used ( (match format with
-          | FAT16 -> 0xff00
-          | FAT12 -> failwith "Unimplemented"
-          | FAT32 -> 0x0fffff00) lor Boot_sector.fat_id )
+      | FAT16 -> 0xff00
+      | FAT12 -> failwith "Unimplemented"
+      | FAT32 -> 0x0fffff00) lor Boot_sector.fat_id )
 
 let cluster_1 format =
   let open Fat_format in
   Used ( match format with
-         | FAT16 -> 0xffff
-         | FAT12 -> 0xfff
-         | FAT32 -> 0x0fffffff )
+      | FAT16 -> 0xffff
+      | FAT12 -> 0xfff
+      | FAT32 -> 0x0fffffff )
 
 let make boot_sector format =
   let n = Boot_sector.clusters boot_sector in
   let open Fat_format in
   let bytes_per_cluster = match format with
-  | FAT16 -> 2
-  | FAT32 -> 4
-  | FAT12 -> failwith "Unimplemented" in
+    | FAT16 -> 2
+    | FAT32 -> 4
+    | FAT12 -> failwith "Unimplemented" in
   let buf = Cstruct.create (n * bytes_per_cluster) in
   marshal format 0 buf (cluster_0 format);
   marshal format 1 buf (cluster_1 format);
@@ -113,8 +113,8 @@ let find_free_from boot format fat start =
   let rec inner i =
     if i = n then None
     else match unmarshal format i fat with
-    | Free -> Some i
-    | _ -> inner (i + 1) in
+      | Free -> Some i
+      | _ -> inner (i + 1) in
   inner start
 
 module Chain = struct
@@ -129,12 +129,12 @@ module Chain = struct
       | 0 -> list (* either zero-length chain if list = [] or corrupt file *)
       | 1 -> list (* corrupt file *)
       | i -> begin match unmarshal format i fat with
-        | End -> i :: list
-        | Free | Bad -> list (* corrupt file *)
-        | Used j ->
-          if IntSet.mem i set
-          then list (* infinite loop: corrupt file *)
-          else inner (i :: list, IntSet.add i set) j
+          | End -> i :: list
+          | Free | Bad -> list (* corrupt file *)
+          | Used j ->
+            if IntSet.mem i set
+            then list (* infinite loop: corrupt file *)
+            else inner (i :: list, IntSet.add i set) j
         end in
     List.rev (inner ([], IntSet.empty) cluster)
 
@@ -151,20 +151,20 @@ module Chain = struct
     if n = 0
     then []
     else
-      if List.length to_allocate <> n
-      then [] (* allocation failed *)
-      else
-        let final = List.hd to_allocate in
-        let to_allocate = List.rev to_allocate in
-        ignore(List.fold_left (fun last next ->
+    if List.length to_allocate <> n
+    then [] (* allocation failed *)
+    else
+      let final = List.hd to_allocate in
+      let to_allocate = List.rev to_allocate in
+      ignore(List.fold_left (fun last next ->
           (match last with
            | Some last ->
-              marshal format last fat (Used next)
+             marshal format last fat (Used next)
            | None -> ());
           Some next
         ) last to_allocate);
-        marshal format final fat End;
-        to_allocate
+      marshal format final fat End;
+      to_allocate
 
   let to_sectors boot clusters =
     List.concat (List.map (Boot_sector.sectors_of_cluster boot) clusters)
