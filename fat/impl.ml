@@ -77,6 +77,7 @@ let buffered common filename =
   else "buffered:" ^ filename
 
 let create common filename size =
+  let size = parse_size size in
   let t =
     ( if Sys.file_exists filename
       then fail (Failure (Printf.sprintf "%s already exists" filename))

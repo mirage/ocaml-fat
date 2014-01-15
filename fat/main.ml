@@ -65,7 +65,7 @@ let create_cmd =
     Arg.(value & pos 0 string "fat.img" & info [] ~doc) in
   let size =
     let doc = "Size of the image" in
-    Arg.(value & pos 1 int64 Int64.(mul 16L (mul 1024L 1024L)) & info [] ~doc) in
+    Arg.(value & pos 1 string "16MiB" & info [] ~doc) in
   Term.(ret(pure Impl.create $ common_options_t $ filename $ size)),
   Term.info "create" ~sdocs:_common_options ~doc ~man
 
