@@ -151,16 +151,20 @@ module Make (B: BLOCK_DEVICE
   let format t size =
     let device = t.device in
 
-    ( match make size with
-      | `Ok x -> return x
-      | `Error x -> fail (Failure x) ) >>= fun fs ->
-
+    (match make size with
+     | `Ok x -> return x
+     | `Error x -> fail (Failure x)
+    )
+    >>= fun fs ->
     let sector = alloc 512 in
     Boot_sector.marshal sector fs.boot;
 
     let fat_sectors = Boot_sector.sectors_of_fat fs.boot in
-    let fat_writes = Update.(map (split (from_cstruct 0L fs.fat) 512) fat_sectors 512) in
-
+    let fat_writes = Update.(
+        let updates = split (from_cstruct 0L fs.fat) 512 in
+        map updates fat_sectors 512
+      )
+    in
     let root_sectors = Boot_sector.sectors_of_root_dir fs.boot in
     let root_writes = Update.(map (split (from_cstruct 0L fs.root) 512) root_sectors 512) in
 
