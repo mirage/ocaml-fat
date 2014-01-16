@@ -34,8 +34,6 @@ let (>>|=) m f = m >>= function
   | `Error e -> fail (Failure (string_of_block_error e))
   | `Ok x -> f x
 
-exception Fs_error of Filesystem.error
-
 let (>>*=) m f = m >>= function
   | `Error (`Block_device e) -> fail (Failure (string_of_block_error e))
   | `Error e -> fail (Failure (Fs.string_of_filesystem_error string_of_block_error e))
@@ -78,8 +76,6 @@ let run t =
     `Ok ()
   with
   | Failure x -> `Error(false, x)
-  | Fs_error e ->
-    `Error(false, Error.to_string e)
 
 let buffered common filename =
   if common.unbuffered

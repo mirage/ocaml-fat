@@ -157,19 +157,21 @@ let kib = 1024L
 let mib = Int64.mul kib 1024L
 
 module BlockError = struct
+  let string_of_block_error = function
+  | `Unknown x -> Printf.sprintf "Unknown block error: %s" x
+  | `Unimplemented -> "Block device function is not implemented"
+  | `Is_read_only -> "Block device is read only"
+  | `Disconnected -> "Block device has been disconnected"
+
   let (>>=) x f = x >>= function
   | `Ok x -> f x
-  | `Error (`Unknown x) -> fail (Failure x)
-  | `Error `Unimplemented -> fail (Failure "unimplemented in block device")
-  | `Error `Is_read_only -> fail (Failure "block device is read-only")
-  | `Error `Disconnected -> fail (Failure "block device is disconnected")
-  | `Error _ -> fail (Failure "unknown block device failure")
+  | `Error x -> fail (Failure (string_of_block_error x))
 end
 
 module FsError = struct
   let (>>=) x f = x >>= function
     | `Ok x -> f x
-    | `Error error -> fail (Failure (Error.to_string error))
+    | `Error error -> fail (Failure (Fs.string_of_filesystem_error BlockError.string_of_block_error error))
 end
 
 let test_create () =
