@@ -24,19 +24,13 @@ open Common
    have specific code to handle is to 'fail' the Lwt thread with
    the exception Failure "user-readable message". *)
 
-let string_of_block_error = function
-  | `Unknown x -> Printf.sprintf "Unknown block error: %s" x
-  | `Unimplemented -> "Block device function is not implemented"
-  | `Is_read_only -> "Block device is read only"
-  | `Disconnected -> "Block device has been disconnected"
-
 let (>>|=) m f = m >>= function
-  | `Error e -> fail (Failure (string_of_block_error e))
+  | `Error e -> fail (Failure (Fs.string_of_block_error e))
   | `Ok x -> f x
 
 let (>>*=) m f = m >>= function
-  | `Error (`Block_device e) -> fail (Failure (string_of_block_error e))
-  | `Error e -> fail (Failure (Fs.string_of_filesystem_error string_of_block_error e))
+  | `Error (`Block_device e) -> fail (Failure (Fs.string_of_block_error e))
+  | `Error e -> fail (Failure (Fs.string_of_filesystem_error e))
   | `Ok x -> f x
 
 let alloc bytes =
@@ -63,7 +57,7 @@ let copy_file_in fs outside inside =
           Filesystem.write fs inside offset frag >>= function
           | `Ok () -> loop (offset + this) (remaining - this)
           | `Error e ->
-            let lowlevel_error = Fs.string_of_filesystem_error string_of_block_error e in
+            let lowlevel_error = Fs.string_of_filesystem_error e in
             fail (Failure (Printf.sprintf "%s while copying %s -> %s, at offset %d with %d bytes remaining"
               lowlevel_error outside inside offset remaining
             )) in

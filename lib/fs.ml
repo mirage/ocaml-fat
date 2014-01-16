@@ -24,7 +24,15 @@ type fs = {
   root: Cstruct.t;
 }
 
-type 'block filesystem_error = [
+type block_error = [ `Unknown of string | `Unimplemented | `Is_read_only | `Disconnected ]
+
+let string_of_block_error = function
+  | `Unknown x -> Printf.sprintf "Unknown block error: %s" x
+  | `Unimplemented -> "Block device function is not implemented"
+  | `Is_read_only -> "Block device is read only"
+  | `Disconnected -> "Block device has been disconnected"
+
+type filesystem_error = [
   | `Not_a_directory of string
   | `Is_a_directory of string
   | `Directory_not_empty of string
@@ -33,10 +41,10 @@ type 'block filesystem_error = [
   | `No_space
   | `Format_not_recognised of string
   | `Unknown_error of string
-  | `Block_device of 'block
+  | `Block_device of block_error
 ]
 
-let string_of_filesystem_error string_of_block = function
+let string_of_filesystem_error = function
 | `Not_a_directory x -> Printf.sprintf "%s is not a directory" x
 | `Is_a_directory x -> Printf.sprintf "%s is a directory" x
 | `Directory_not_empty x -> Printf.sprintf "The directory %s is not empty" x
@@ -45,7 +53,7 @@ let string_of_filesystem_error string_of_block = function
 | `No_space -> "There is insufficient free space to complete this operation"
 | `Format_not_recognised x -> Printf.sprintf "This disk is not formatted with %s" x
 | `Unknown_error x -> Printf.sprintf "Unknown error: %s" x
-| `Block_device x -> string_of_block x
+| `Block_device x -> string_of_block_error x
 
 module Make (B: BLOCK_DEVICE
   with type 'a io = 'a Lwt.t
@@ -69,7 +77,7 @@ module Make (B: BLOCK_DEVICE
 
   type block_device_error = B.error
 
-  type error = block_device_error filesystem_error
+  type error = filesystem_error
 
   type page_aligned_buffer = Cstruct.t
 
