@@ -36,6 +36,17 @@ type 'block filesystem_error = [
   | `Block_device of 'block
 ]
 
+let string_of_filesystem_error string_of_block = function
+| `Not_a_directory x -> Printf.sprintf "%s is not a directory" x
+| `Is_a_directory x -> Printf.sprintf "%s is a directory" x
+| `Directory_not_empty x -> Printf.sprintf "The directory %s is not empty" x
+| `No_directory_entry (x, y) -> Printf.sprintf "The directory %s contains no entry called %s" x y
+| `File_already_exists x -> Printf.sprintf "The filename %s already exists" x
+| `No_space -> "There is insufficient free space to complete this operation"
+| `Format_not_recognised x -> Printf.sprintf "This disk is not formatted with %s" x
+| `Unknown_error x -> Printf.sprintf "Unknown error: %s" x
+| `Block_device x -> string_of_block x
+
 module Make (B: BLOCK_DEVICE
   with type 'a io = 'a Lwt.t
   and type page_aligned_buffer = Cstruct.t)(M: IO_PAGE
@@ -327,7 +338,7 @@ let make size =
 
   let if_formatted x f = match x.fs with
     | Some fs -> f fs
-    | None -> fail (Fs_error (`Format_not_recognised ""))
+    | None -> fail (Fs_error (`Format_not_recognised "FAT"))
 
   let create_common x path dir_entry =
     let path = Path.of_string path in
