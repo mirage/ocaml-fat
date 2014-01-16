@@ -24,6 +24,37 @@ type fs = {
   root: Cstruct.t;
 }
 
+type block_error = [ `Unknown of string | `Unimplemented | `Is_read_only | `Disconnected ]
+
+let string_of_block_error = function
+  | `Unknown x -> Printf.sprintf "Unknown block error: %s" x
+  | `Unimplemented -> "Block device function is not implemented"
+  | `Is_read_only -> "Block device is read only"
+  | `Disconnected -> "Block device has been disconnected"
+
+type filesystem_error = [
+  | `Not_a_directory of string
+  | `Is_a_directory of string
+  | `Directory_not_empty of string
+  | `No_directory_entry of string * string
+  | `File_already_exists of string
+  | `No_space
+  | `Format_not_recognised of string
+  | `Unknown_error of string
+  | `Block_device of block_error
+]
+
+let string_of_filesystem_error = function
+| `Not_a_directory x -> Printf.sprintf "%s is not a directory" x
+| `Is_a_directory x -> Printf.sprintf "%s is a directory" x
+| `Directory_not_empty x -> Printf.sprintf "The directory %s is not empty" x
+| `No_directory_entry (x, y) -> Printf.sprintf "The directory %s contains no entry called %s" x y
+| `File_already_exists x -> Printf.sprintf "The filename %s already exists" x
+| `No_space -> "There is insufficient free space to complete this operation"
+| `Format_not_recognised x -> Printf.sprintf "This disk is not formatted with %s" x
+| `Unknown_error x -> Printf.sprintf "Unknown error: %s" x
+| `Block_device x -> string_of_block_error x
+
 module Make (B: BLOCK_DEVICE
   with type 'a io = 'a Lwt.t
   and type page_aligned_buffer = Cstruct.t)(M: IO_PAGE
@@ -46,17 +77,7 @@ module Make (B: BLOCK_DEVICE
 
   type block_device_error = B.error
 
-  type error = [
-    | `Not_a_directory of string 
-    | `Is_a_directory of string
-    | `Directory_not_empty of string
-    | `No_directory_entry of string * string
-    | `File_already_exists of string
-    | `No_space
-    | `Format_not_recognised of string
-    | `Unknown_error of string
-    | `Block_device of block_device_error
-  ]
+  type error = filesystem_error
 
   type page_aligned_buffer = Cstruct.t
 
@@ -314,7 +335,7 @@ let make size =
   and update_directory_containing device fs path f =
     let parent_path = Path.directory path in
     find device fs parent_path >>= function
-      | `Error x -> fail (Fs_error x)
+      | `Error (x: error) -> fail (Fs_error x)
       | `Ok (File _) -> fail (Fs_error (`Not_a_directory (Path.to_string parent_path)))
       | `Ok (Dir ds) ->
         Location.of_file device fs parent_path >>= fun location ->
@@ -325,7 +346,7 @@ let make size =
 
   let if_formatted x f = match x.fs with
     | Some fs -> f fs
-    | None -> fail (Fs_error (`Format_not_recognised ""))
+    | None -> fail (Fs_error (`Format_not_recognised "FAT"))
 
   let create_common x path dir_entry =
     let path = Path.of_string path in
@@ -339,13 +360,24 @@ let make size =
         )
     )
 
-  let wrap f =
+  let wrap f : [ `Ok of unit | `Error of error ] io =
     catch
       (fun () -> f () >>= fun x -> return (`Ok x))
       (function
-       | Fs_error err -> return (`Error err)
-       | Block_device_error err -> return (`Error (`Block_device err))
-       | e -> return (`Error (`Unknown_error (Printexc.to_string e)))) 
+       | Fs_error (`Not_a_directory x)         -> return (`Error (`Not_a_directory x))
+       | Fs_error (`Directory_not_empty x)     -> return (`Error (`Directory_not_empty x))
+       | Fs_error (`File_already_exists x)     -> return (`Error (`File_already_exists x))
+       | Fs_error (`Format_not_recognised x)   -> return (`Error (`Format_not_recognised x))
+       | Fs_error (`Is_a_directory x)          -> return (`Error (`Is_a_directory x))
+       | Fs_error (`No_directory_entry (x, y)) -> return (`Error (`No_directory_entry (x, y)))
+       | Fs_error `No_space                    -> return (`Error `No_space)
+       | Fs_error (`Unknown_error x)           -> return (`Error (`Unknown_error x))
+       | Fs_error (`Block_device x)            -> return (`Error (`Block_device x))
+       | Block_device_error `Unimplemented     -> return (`Error (`Block_device `Unimplemented))
+       | Block_device_error (`Unknown x)       -> return (`Error (`Block_device (`Unknown x)))
+       | Block_device_error `Is_read_only      -> return (`Error (`Block_device `Is_read_only))
+       | Block_device_error `Disconnected      -> return (`Error (`Block_device `Disconnected))
+       | e                                     -> return (`Error (`Unknown_error (Printexc.to_string e)))) 
 
   (** [write x f offset buf] writes [buf] at [offset] in file [f] on
       filesystem [x] *)
