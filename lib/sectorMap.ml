@@ -15,9 +15,9 @@
  *)
 
 module M = Map.Make(struct
-  type t = int
-  let compare (x: int) (y: int) = compare x y
-end)
+    type t = int
+    let compare (x: int) (y: int) = compare x y
+  end)
 open M
 type t = int M.t
 
@@ -51,9 +51,9 @@ let clip (preceeding, _, succeeding) = function
 
 let compose a b =
   map (fun x ->
-    if not (mem x b)
-    then failwith (Printf.sprintf "SectorMap.compose: missing mapping for %d" x)
-    else find x b) a
+      if not (mem x b)
+      then failwith (Printf.sprintf "SectorMap.compose: missing mapping for %d" x)
+      else find x b) a
 
 let to_list m = List.rev (fold (fun _ x acc -> x :: acc) m [])
 
@@ -69,4 +69,3 @@ let transform_offset (x: t) sector_size vaddr =
   let psector = find x (Int64.to_int vsector) in
   let voffset = Int64.(sub vaddr (mul vsector s)) in
   Int64.(add voffset (mul (of_int psector) s))
-

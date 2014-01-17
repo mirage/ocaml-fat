@@ -46,10 +46,10 @@ let checksum_test () =
     make "FAT.ML", 223;
   ] in
   List.iter (fun (d, expected) ->
-    let d = snd d.dos in
-    let checksum = compute_checksum d in
-    assert_equal ~printer:string_of_int expected checksum
-  ) checksum_tests
+      let d = snd d.dos in
+      let checksum = compute_checksum d in
+      assert_equal ~printer:string_of_int expected checksum
+    ) checksum_tests
 
 let print_int_list xs = "[" ^ ( String.concat "; " (List.map string_of_int xs) ) ^ "]"
 
@@ -98,11 +98,11 @@ let test_chains () =
     let open Boot_sector in
     read_sector "lib_test/bootsector.dat" >>= fun bytes ->
     let boot = match unmarshal bytes with
-    | `Error x -> failwith x
-    | `Ok x -> x in
+      | `Error x -> failwith x
+      | `Ok x -> x in
     let printer = function
-    | `Error e -> e
-    | `Ok x -> Fat_format.to_string x in
+      | `Error e -> e
+      | `Ok x -> Fat_format.to_string x in
     assert_equal ~printer (`Ok Fat_format.FAT16) (Boot_sector.detect_format boot);
     read_whole_file "lib_test/root.dat" >>= fun bytes ->
     let all = Name.list bytes in
@@ -110,7 +110,7 @@ let test_chains () =
 
     let expected = [0; 0; 0; 2235; 3] in
     let actual = List.map (fun x -> (snd (x.Name.dos)).Name.start_cluster) all in
-    assert_equal ~printer:print_int_list expected actual; 
+    assert_equal ~printer:print_int_list expected actual;
     assert_equal ~printer:print_int_list [] (Entry.Chain.follow Fat_format.FAT16 fat 0);
 
     assert_equal ~printer:print_int_list [2235] (Entry.Chain.follow Fat_format.FAT16 fat 2235);
@@ -125,8 +125,8 @@ let test_parse_boot_sector () =
     let open Boot_sector in
     read_sector "lib_test/bootsector.dat" >>= fun bytes ->
     let x = match unmarshal bytes with
-    | `Error x -> failwith x
-    | `Ok x -> x in
+      | `Error x -> failwith x
+      | `Ok x -> x in
     let check x =
       assert_equal ~printer:(fun x -> x) "mkdosfs\000" x.oem_name;
       assert_equal ~printer:string_of_int 512 x.bytes_per_sector;
@@ -145,8 +145,8 @@ let test_parse_boot_sector () =
     let buf = alloc sizeof in
     marshal buf x;
     let x = match unmarshal buf with
-    | `Error x -> failwith x
-    | `Ok x -> x in
+      | `Error x -> failwith x
+      | `Ok x -> x in
     check x;
     return () in
   Lwt_main.run t
@@ -228,14 +228,14 @@ let interesting_writes = sector_aligned_writes @ sector_misaligned_writes
 
 let interesting_filenames = [
   "HELLO.TXT";
-  "/FOO/BAR.TXT"; 
-] 
+  "/FOO/BAR.TXT";
+]
 
 let test_listdir () =
   let t =
     let open BlockError in
     MemoryIO.connect "" >>= fun device ->
-    let open FsError in  
+    let open FsError in
     MemFS.connect device >>= fun fs ->
     MemFS.format fs (Int64.mul 16L mib) >>= fun () ->
     let filename = "hello" in
@@ -244,31 +244,31 @@ let test_listdir () =
     if List.mem filename all
     then return ()
     else fail (Failure (Printf.sprintf "Looking for '%s' in directory, contents [ %s ]" filename
-      (String.concat ", " (List.map (fun x -> Printf.sprintf "'%s'(%d)" x (String.length x)) all)))) in
+                          (String.concat ", " (List.map (fun x -> Printf.sprintf "'%s'(%d)" x (String.length x)) all)))) in
   Lwt_main.run t
 
 let test_listdir_subdir () =
   let t =
     let open BlockError in
     MemoryIO.connect "" >>= fun device ->
-    let open FsError in  
+    let open FsError in
     MemFS.connect device >>= fun fs ->
     MemFS.format fs (Int64.mul 16L mib) >>= fun () ->
     let dirname = "hello" in
     MemFS.mkdir fs dirname >>= fun () ->
     MemFS.listdir fs "/" >>= fun all ->
     ( if List.mem dirname all
-    then return (`Ok ())
-    else return (`Error (`Unknown_error (Printf.sprintf "Looking for '%s' in / directory, contents [ %s ]" dirname
-      (String.concat ", " (List.map (fun x -> Printf.sprintf "'%s'(%d)" x (String.length x)) all))))) ) >>= fun () ->
+      then return (`Ok ())
+      else return (`Error (`Unknown_error (Printf.sprintf "Looking for '%s' in / directory, contents [ %s ]" dirname
+                                             (String.concat ", " (List.map (fun x -> Printf.sprintf "'%s'(%d)" x (String.length x)) all))))) ) >>= fun () ->
     let filename = "there" in
     let path = Filename.concat dirname filename in
     MemFS.create fs path >>= fun () ->
     MemFS.listdir fs dirname >>= fun all ->
     ( if List.mem filename all
-    then return ()
-    else fail (Failure (Printf.sprintf "Looking for '%s' in %s directory, contents [ %s ]" filename dirname
-      (String.concat ", " (List.map (fun x -> Printf.sprintf "'%s'(%d)" x (String.length x)) all)))) )
+      then return ()
+      else fail (Failure (Printf.sprintf "Looking for '%s' in %s directory, contents [ %s ]" filename dirname
+                            (String.concat ", " (List.map (fun x -> Printf.sprintf "'%s'(%d)" x (String.length x)) all)))) )
   in
   Lwt_main.run t
 
@@ -276,7 +276,7 @@ let test_read () =
   let t =
     let open BlockError in
     MemoryIO.connect "" >>= fun device ->
-    let open FsError in  
+    let open FsError in
     MemFS.connect device >>= fun fs ->
     MemFS.format fs (Int64.mul 16L mib) >>= fun () ->
     let filename = "hello" in
@@ -304,21 +304,21 @@ let test_write ((filename: string), (offset, length)) () =
   let t =
     let open BlockError in
     MemoryIO.connect "" >>= fun device ->
-    let open FsError in  
+    let open FsError in
     MemFS.connect device >>= fun fs ->
     MemFS.format fs (Int64.mul 16L mib) >>= fun () ->
     let open Lwt in
     ( match List.rev (Path.to_string_list (Path.of_string filename)) with
-    | [] -> assert false
-    | [ _ ] -> return ()
-    | _ :: dir ->
-      List.fold_left (fun current dir ->
-        current >>= fun current ->
-        let open FsError in
-        MemFS.mkdir fs (Path.(to_string (of_string_list (current @ [dir])))) >>= fun () ->
-        return (current @ [dir])
-      ) (return []) (List.rev dir) >>= fun _ ->
-      return () ) >>= fun () ->
+      | [] -> assert false
+      | [ _ ] -> return ()
+      | _ :: dir ->
+        List.fold_left (fun current dir ->
+            current >>= fun current ->
+            let open FsError in
+            MemFS.mkdir fs (Path.(to_string (of_string_list (current @ [dir])))) >>= fun () ->
+            return (current @ [dir])
+          ) (return []) (List.rev dir) >>= fun _ ->
+        return () ) >>= fun () ->
     let open FsError in
     MemFS.create fs filename >>= fun () ->
     let buffer = make_pattern "basic writing test " length in
@@ -339,22 +339,21 @@ let _ =
     "-verbose", Arg.Unit (fun _ -> verbose := true), "Run in verbose mode";
   ] (fun x -> Printf.fprintf stderr "Ignoring argument: %s" x)
     "Test FAT filesystem";
-    
+
   let write_tests =
     List.map (fun ((filename, (off, len)) as x) ->
         Printf.sprintf "write to %s at %d length %d" filename off len >::
           (test_write x)
-    ) (allpairs interesting_filenames interesting_writes) in
+      ) (allpairs interesting_filenames interesting_writes) in
 
   let suite = "fat" >::: [
-    "test_parse_boot_sector" >:: test_parse_boot_sector;
-    "checksum" >:: checksum_test;
-    "test_root_list" >:: test_root_list;
-    "test_chains" >:: test_chains;
-    "test_create" >:: test_create;
-    "test_listdir" >:: test_listdir;
-    "test_listdir_subdir" >:: test_listdir_subdir;
-    "test_read" >:: test_read;
-  ] @ write_tests in
+      "test_parse_boot_sector" >:: test_parse_boot_sector;
+      "checksum" >:: checksum_test;
+      "test_root_list" >:: test_root_list;
+      "test_chains" >:: test_chains;
+      "test_create" >:: test_create;
+      "test_listdir" >:: test_listdir;
+      "test_listdir_subdir" >:: test_listdir_subdir;
+      "test_read" >:: test_read;
+    ] @ write_tests in
   run_test_tt ~verbose:!verbose suite
-

@@ -15,6 +15,6 @@
  *)
 
 include S.BLOCK_DEVICE
-with type 'a io = 'a Lwt.t
-and type page_aligned_buffer = Cstruct.t
-and type id = string
+  with type 'a io = 'a Lwt.t
+   and type page_aligned_buffer = Cstruct.t
+   and type id = string

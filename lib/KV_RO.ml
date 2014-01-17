@@ -18,9 +18,9 @@ open V1
 open Lwt
 
 module Make(FS: FS with
-       type 'a io = 'a Lwt.t
-  ) = struct
-  
+             type 'a io = 'a Lwt.t
+           ) = struct
+
   type t = FS.t
   type +'a io = 'a Lwt.t
   type id = FS.id
@@ -34,7 +34,7 @@ module Make(FS: FS with
     | `Error _ -> return (`Error (Unknown_key "connect"))
     | `Ok t -> return (`Ok t)
 
-  let disconnect id = 
+  let disconnect id =
     FS.disconnect id
 
   let id t = FS.id t
@@ -46,7 +46,7 @@ module Make(FS: FS with
     | `Ok l -> return (`Ok l)
 
   let size t name =
-    FS.stat t name 
+    FS.stat t name
     >>= function
     | `Error _ -> return (`Error (Unknown_key name))
     | `Ok stat -> return (`Ok (stat.FS.size))

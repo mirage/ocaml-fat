@@ -14,7 +14,7 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-type t = 
+type t =
   | Free
   | Used of int (** points to the next in the chain *)
   | End         (** end of a chain *)

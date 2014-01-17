@@ -104,6 +104,7 @@ let debug_print x =
   Printf.printf "OEM: [%s]\n" x.oem_name;
   Printf.printf "bytes_per_sector: %d\n" x.bytes_per_sector;
   Printf.printf "sectors_per_cluster: %d\n" x.sectors_per_cluster;
+  Printf.printf "sectors_per_fat: %d\n" x.sectors_per_fat;
   Printf.printf "total_sectors: %ld\n" x.total_sectors;
   Printf.printf "reserved_sectors: %d\n" x.reserved_sectors;
   Printf.printf "number of FATs: %d\n" x.number_of_fats;
@@ -113,8 +114,8 @@ let debug_print x =
 
 let ints start length =
   let rec enumerate start length acc = match length with
-  | 0 -> acc
-  | _ -> enumerate (start + 1) (length - 1) (start :: acc) in
+    | 0 -> acc
+    | _ -> enumerate (start + 1) (length - 1) (start :: acc) in
   List.rev (enumerate start length [])
 
 (** Return the sector number of the first cluster *)
@@ -136,7 +137,7 @@ let clusters x =
    http://averstak.tripod.com/fatdox/bootsec.htm *)
 let format_of_clusters number_of_clusters =
   let open Fat_format in
-  if number_of_clusters < 4087 then Some FAT12
+  if number_of_clusters < 4087 then Some FAT16 (* FAT12 *)
   else if number_of_clusters < 65527 then Some FAT16
   else if number_of_clusters < 268435457 then Some FAT32
   else None
@@ -152,13 +153,15 @@ let make size =
   (* XXX: need to choose this intelligently based on the disk size *)
   let sectors_per_cluster = 4 in
   let total_sectors = Int64.(to_int32 (div (add 511L size) 512L)) in
-  let total_clusters = Int32.(to_int (div total_sectors (of_int sectors_per_cluster))) in
+  let total_clusters =
+    Int32.(to_int (div (add 3l total_sectors) (of_int sectors_per_cluster)))
+  in
   let open Fat_format in
   match format_of_clusters total_clusters with
   | Some FAT12 | Some FAT32 | None ->
     failwith "unimplemented"
   | Some FAT16 ->
-    let sectors_per_fat = (total_clusters * 2) / 512 in
+    let sectors_per_fat = ((total_clusters * 2) + 511) / 512 in
     let reserved_sectors = 4 in
     let number_of_fats = 1 in
     let number_of_root_dir_entries = 512 in

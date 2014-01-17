@@ -77,6 +77,10 @@ let buffered common filename =
   else "buffered:" ^ filename
 
 let create common filename size =
+  let size =
+    let sz = parse_size size in
+    max Int64.(add (mul 512L 48L) 1L) sz
+  in
   let t =
     ( if Sys.file_exists filename
       then fail (Failure (Printf.sprintf "%s already exists" filename))
@@ -119,11 +123,11 @@ let add common filename files =
         Filesystem.listdir fs (Filename.dirname inside_path) >>*= fun xs ->
         if not(List.mem (Filename.basename inside_path) xs)
         then fail (Failure (Printf.sprintf "listdir(%s) = [ %s ], doesn't include '%s'(%d)"
-          (Filename.dirname inside_path)
-          (String.concat ", " (List.map (fun x -> Printf.sprintf "'%s'(%d)" x (String.length x)) xs))
-          (Filename.basename inside_path)
-          (String.length (Filename.basename inside_path))
-        ))
+                              (Filename.dirname inside_path)
+                              (String.concat ", " (List.map (fun x -> Printf.sprintf "'%s'(%d)" x (String.length x)) xs))
+                              (Filename.basename inside_path)
+                              (String.length (Filename.basename inside_path))
+                           ))
         else copy_file_in fs outside_path inside_path
       | Lwt_unix.S_DIR ->
         let children = Array.to_list (Sys.readdir outside_path) in
@@ -143,13 +147,13 @@ let list common filename =
       Filesystem.listdir fs curdir >>*= fun children ->
       Lwt_list.iter_s
         (fun child ->
-          let path = Filename.concat curdir child in
-          Filesystem.stat fs path >>*= fun stats ->
-          Printf.printf "%s (%s)(%Ld bytes)\n" path
-            (if stats.Filesystem.directory then "DIR" else "FILE") stats.Filesystem.size;
-          if stats.Filesystem.directory
-          then loop path
-          else return ()
+           let path = Filename.concat curdir child in
+           Filesystem.stat fs path >>*= fun stats ->
+           Printf.printf "%s (%s)(%Ld bytes)\n" path
+             (if stats.Filesystem.directory then "DIR" else "FILE") stats.Filesystem.size;
+           if stats.Filesystem.directory
+           then loop path
+           else return ()
         ) children in
     loop "/" in
   run t

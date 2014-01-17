@@ -22,23 +22,23 @@ open Cmdliner
 (* Help sections common to all commands *)
 
 let _common_options = "COMMON OPTIONS"
-let help = [ 
- `S _common_options; 
- `P "These options are common to all commands.";
- `S "MORE HELP";
- `P "Use `$(mname) $(i,COMMAND) --help' for help on a single command."; `Noblank;
- `S "BUGS"; `P (Printf.sprintf "Check bug reports at %s" project_url);
+let help = [
+  `S _common_options;
+  `P "These options are common to all commands.";
+  `S "MORE HELP";
+  `P "Use `$(mname) $(i,COMMAND) --help' for help on a single command."; `Noblank;
+  `S "BUGS"; `P (Printf.sprintf "Check bug reports at %s" project_url);
 ]
 
 (* Options common to all commands *)
-let common_options_t = 
-  let docs = _common_options in 
-  let debug = 
+let common_options_t =
+  let docs = _common_options in
+  let debug =
     let doc = "Give only debug output." in
     Arg.(value & flag & info ["debug"] ~docs ~doc) in
   let verb =
     let doc = "Give verbose output." in
-    let verbose = true, Arg.info ["v"; "verbose"] ~docs ~doc in 
+    let verbose = true, Arg.info ["v"; "verbose"] ~docs ~doc in
     Arg.(last & vflag_all [false] [verbose]) in
   let unbuffered =
     let doc = "Use unbuffered I/O (via O_DIRECT)." in
@@ -65,7 +65,7 @@ let create_cmd =
     Arg.(value & pos 0 string "fat.img" & info [] ~doc) in
   let size =
     let doc = "Size of the image" in
-    Arg.(value & pos 1 int64 Int64.(mul 16L (mul 1024L 1024L)) & info [] ~doc) in
+    Arg.(value & pos 1 string "16MiB" & info [] ~doc) in
   Term.(ret(pure Impl.create $ common_options_t $ filename $ size)),
   Term.info "create" ~sdocs:_common_options ~doc ~man
 
@@ -97,15 +97,15 @@ let cat_cmd =
   Term.(ret(pure Impl.cat $ common_options_t $ filename $ path)),
   Term.info "cat" ~sdocs:_common_options ~doc ~man
 
-let default_cmd = 
+let default_cmd =
   let doc = "manipulate FAT filesystem images" in
   let man = help in
   Term.(ret (pure (fun _ -> `Help (`Pager, None)) $ common_options_t)),
   Term.info "fat" ~version:"1.0.0" ~sdocs:_common_options ~doc ~man
-       
+
 let cmds = [create_cmd; add_cmd; list_cmd; cat_cmd]
 
 let _ =
-  match Term.eval_choice default_cmd cmds with 
+  match Term.eval_choice default_cmd cmds with
   | `Error _ -> exit 1
   | _ -> exit 0

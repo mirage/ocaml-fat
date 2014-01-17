@@ -32,7 +32,7 @@ type t = {
 }
 
 let to_string x = Printf.sprintf "Update.({ offset=%Ld data=%s })"
-  x.offset (string_of_data x.data)
+                    x.offset (string_of_data x.data)
 
 let from_string offset x = { offset; data = String x }
 let from_cstruct offset x = { offset; data = Cstruct x }
@@ -81,8 +81,9 @@ let split x sector_size =
     else
       let this = clip x start sector_size in
       let new_start = Int64.(add start (of_int sector_size)) in
-      inner (if is_empty this then acc else this :: acc) new_start in
-    inner [] starting_sector_offset
+      inner (if is_empty this then acc else this :: acc) new_start
+  in
+  inner [] starting_sector_offset
 
 (** [map xs offsets] takes a sequence of virtual sector updates (eg within the
     virtual address space of a file) and a sequence of physical offsets (eg the

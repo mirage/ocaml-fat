@@ -15,8 +15,8 @@
  *)
 
 module type BLOCK_DEVICE = V1.BLOCK
-with type page_aligned_buffer = Cstruct.t
-and type 'a io = 'a Lwt.t
+  with type page_aligned_buffer = Cstruct.t
+   and type 'a io = 'a Lwt.t
 
 module type IO_PAGE = V1.IO_PAGE
 
