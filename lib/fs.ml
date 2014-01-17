@@ -159,12 +159,17 @@ module Make (B: BLOCK_DEVICE
     let sector = alloc 512 in
     Boot_sector.marshal sector fs.boot;
 
+    let to_string list =
+      String.concat ", " (List.map (fun e -> Printf.sprintf "%d" e) list)
+    in
+
     let fat_sectors = Boot_sector.sectors_of_fat fs.boot in
     let fat_writes = Update.(
         let updates = split (from_cstruct 0L fs.fat) 512 in
         map updates fat_sectors 512
       )
     in
+
     let root_sectors = Boot_sector.sectors_of_root_dir fs.boot in
     let root_writes = Update.(map (split (from_cstruct 0L fs.root) 512) root_sectors 512) in
 

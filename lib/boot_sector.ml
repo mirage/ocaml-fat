@@ -153,7 +153,9 @@ let make size =
   (* XXX: need to choose this intelligently based on the disk size *)
   let sectors_per_cluster = 4 in
   let total_sectors = Int64.(to_int32 (div (add 511L size) 512L)) in
-  let total_clusters = Int32.(to_int (div (add 3l total_sectors) (of_int sectors_per_cluster))) in
+  let total_clusters =
+    Int32.(to_int (div (add 3l total_sectors) (of_int sectors_per_cluster)))
+  in
   let open Fat_format in
   match format_of_clusters total_clusters with
   | Some FAT12 | Some FAT32 | None ->
