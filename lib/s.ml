@@ -23,26 +23,3 @@ module type IO_PAGE = V1.IO_PAGE
 module type FS = V1.FS
 with type page_aligned_buffer = Cstruct.t
 and type 'a io = 'a Lwt.t
-
-module Error = struct
-
-  let to_string = function
-    | `Not_a_directory x ->
-      Printf.sprintf "Not_a_directory %s" x
-    | `Is_a_directory x->
-      Printf.sprintf "Is_a_directory %s" x
-    | `Directory_not_empty x ->
-      Printf.sprintf "Directory_not_empty %s" x
-    | `No_directory_entry (x, y) ->
-      Printf.sprintf "There is no entry named '%s' in directory '%s'" y x
-    | `File_already_exists x ->
-      Printf.sprintf "File_already_exists %s" x
-    | `No_space ->
-      Printf.sprintf "No_space"
-    | `Format_not_recognised details ->
-      Printf.sprintf "Format_not_recognised: %s" details
-    | `Unknown_error x ->
-      Printf.sprintf "Unknown_error: %s" x
-    | `Block_device _ ->
-      Printf.sprintf "Block device error"
-end

@@ -20,17 +20,17 @@ open S
 module Filesystem = Fs.Make(Block)(Io_page)
 open Common
 
-exception Block_error of Block.error
+(* Default policy when we hit a block- or fs-level error which we don't
+   have specific code to handle is to 'fail' the Lwt thread with
+   the exception Failure "user-readable message". *)
 
 let (>>|=) m f = m >>= function
-  | `Error e -> fail (Block_error e)
+  | `Error e -> fail (Failure (Fs.string_of_block_error e))
   | `Ok x -> f x
 
-exception Fs_error of Filesystem.error
-
 let (>>*=) m f = m >>= function
-  | `Error (`Block_device e) -> fail (Block_error e)
-  | `Error e -> fail (Fs_error e)
+  | `Error (`Block_device e) -> fail (Failure (Fs.string_of_block_error e))
+  | `Error e -> fail (Failure (Fs.string_of_filesystem_error e))
   | `Ok x -> f x
 
 let alloc bytes =
@@ -56,7 +56,11 @@ let copy_file_in fs outside inside =
           Block.really_read ifd frag >>= fun () ->
           Filesystem.write fs inside offset frag >>= function
           | `Ok () -> loop (offset + this) (remaining - this)
-          | `Error _ -> failwith "some error" in
+          | `Error e ->
+            let lowlevel_error = Fs.string_of_filesystem_error e in
+            fail (Failure (Printf.sprintf "%s while copying %s -> %s, at offset %d with %d bytes remaining"
+              lowlevel_error outside inside offset remaining
+            )) in
       loop 0 stats.Lwt_unix.st_size
     )
 
@@ -64,16 +68,8 @@ let run t =
   try
     Lwt_main.run t;
     `Ok ()
-  with Block_error `Is_read_only ->
-    `Error(false, "File is read only")
-  | Block_error `Unimplemented ->
-    `Error(false, "Block operation is unimplemented")
-  | Block_error (`Unknown x) ->
-    `Error(false, x)
-  | Block_error _ ->
-    `Error(false, "Unknown block device error")
-  | Fs_error e ->
-    `Error(false, Error.to_string e)
+  with
+  | Failure x -> `Error(false, x)
 
 let buffered common filename =
   if common.unbuffered
