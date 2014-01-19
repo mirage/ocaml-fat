@@ -1,6 +1,6 @@
 OASISFormat: 0.3
 Name:        fat-filesystem
-Version:     0.9.0
+Version:     0.10.1
 Synopsis:    FAT filesystem manipulation
 Authors:     David Scott, Anil Madhavapeddy
 License:     ISC
@@ -21,7 +21,7 @@ Executable fat
   MainIs:             main.ml
   Custom:             true
   Install:            false
-  BuildDepends:       fat-filesystem, mirage-block-unix, cmdliner, io-page-unix
+  BuildDepends:       fat-filesystem, mirage-block-unix, cmdliner, io-page.unix
 
 Executable shell
   CompiledObject:     best
@@ -29,7 +29,7 @@ Executable shell
   MainIs:             main.ml
   Custom:             true
   Install:            false
-  BuildDepends:       fat-filesystem, mirage-block-unix, io-page-unix
+  BuildDepends:       fat-filesystem, mirage-block-unix, io-page.unix
 
 Executable test
   CompiledObject:     best
@@ -37,7 +37,7 @@ Executable test
   MainIs:             test.ml
   Custom:             true
   Install:            false
-  BuildDepends:       lwt, lwt.unix, fat-filesystem, cstruct, oUnit, mirage-block-unix, io-page-unix
+  BuildDepends:       lwt, lwt.unix, fat-filesystem, cstruct, oUnit, mirage-block-unix, io-page.unix
 
 Test test
   Command:            ./test.native

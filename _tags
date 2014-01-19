@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 1fa08ffd4a2f317d852a7b1af14b9ece)
+# DO NOT EDIT (digest: 8ee83fb4b404e55fe32f18ca985dc07d)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -37,7 +37,7 @@
 <fat/main.{native,byte}>: pkg_lwt
 <fat/main.{native,byte}>: pkg_cstruct
 <fat/main.{native,byte}>: pkg_mirage-block-unix
-<fat/main.{native,byte}>: pkg_io-page-unix
+<fat/main.{native,byte}>: pkg_io-page.unix
 <fat/main.{native,byte}>: pkg_cmdliner
 <fat/main.{native,byte}>: pkg_re
 <fat/main.{native,byte}>: pkg_re.str
@@ -46,7 +46,7 @@
 <fat/*.ml{,i}>: pkg_lwt
 <fat/*.ml{,i}>: pkg_cstruct
 <fat/*.ml{,i}>: pkg_mirage-block-unix
-<fat/*.ml{,i}>: pkg_io-page-unix
+<fat/*.ml{,i}>: pkg_io-page.unix
 <fat/*.ml{,i}>: pkg_cmdliner
 <fat/*.ml{,i}>: pkg_re
 <fat/*.ml{,i}>: pkg_re.str
@@ -57,7 +57,7 @@
 <shell/main.{native,byte}>: pkg_lwt
 <shell/main.{native,byte}>: pkg_cstruct
 <shell/main.{native,byte}>: pkg_mirage-block-unix
-<shell/main.{native,byte}>: pkg_io-page-unix
+<shell/main.{native,byte}>: pkg_io-page.unix
 <shell/main.{native,byte}>: pkg_re
 <shell/main.{native,byte}>: pkg_re.str
 <shell/main.{native,byte}>: pkg_mirage-types
@@ -65,7 +65,7 @@
 <shell/*.ml{,i}>: pkg_lwt
 <shell/*.ml{,i}>: pkg_cstruct
 <shell/*.ml{,i}>: pkg_mirage-block-unix
-<shell/*.ml{,i}>: pkg_io-page-unix
+<shell/*.ml{,i}>: pkg_io-page.unix
 <shell/*.ml{,i}>: pkg_re
 <shell/*.ml{,i}>: pkg_re.str
 <shell/*.ml{,i}>: pkg_mirage-types
@@ -77,7 +77,7 @@
 <lib_test/test.{native,byte}>: pkg_cstruct
 <lib_test/test.{native,byte}>: pkg_oUnit
 <lib_test/test.{native,byte}>: pkg_mirage-block-unix
-<lib_test/test.{native,byte}>: pkg_io-page-unix
+<lib_test/test.{native,byte}>: pkg_io-page.unix
 <lib_test/test.{native,byte}>: pkg_re
 <lib_test/test.{native,byte}>: pkg_re.str
 <lib_test/test.{native,byte}>: pkg_mirage-types
@@ -87,7 +87,7 @@
 <lib_test/*.ml{,i}>: pkg_cstruct
 <lib_test/*.ml{,i}>: pkg_oUnit
 <lib_test/*.ml{,i}>: pkg_mirage-block-unix
-<lib_test/*.ml{,i}>: pkg_io-page-unix
+<lib_test/*.ml{,i}>: pkg_io-page.unix
 <lib_test/*.ml{,i}>: pkg_re
 <lib_test/*.ml{,i}>: pkg_re.str
 <lib_test/*.ml{,i}>: pkg_mirage-types
