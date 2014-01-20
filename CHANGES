@@ -1,3 +1,6 @@
+0.10.1 (trunk):
+* Use io-page.unix instead of io-page-unix.
+
 0.10.0 (18-Dec-2013):
 * speed up the 'fat' CLI tool by using buffered I/O by default.
   This requires mirage-block-unix.1.2.0
