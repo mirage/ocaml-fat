@@ -1,5 +1,5 @@
 # OPAM packages needed to build tests.
-OPAM_PACKAGES="cstruct ounit lwt cstruct re cmdliner mirage-block-unix mirage-types"
+OPAM_PACKAGES="cstruct ounit lwt cstruct re cmdliner mirage-block-unix mirage-types io-page-unix"
 
 
 case "$OCAML_VERSION,$OPAM_VERSION" in
@@ -23,7 +23,7 @@ echo OPAM versions
 opam --version
 opam --git-version
 
-opam init 
+opam init
 opam install ${OPAM_PACKAGES}
 
 eval `opam config env`
