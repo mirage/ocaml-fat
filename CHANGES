@@ -1,3 +1,7 @@
+0.10.2 (trunk)
+* Fixed destroy, which previously would overwrite the entry with
+  uninitialised data, which might not set the deleted flag.
+
 0.10.1 (01-Feb-2013):
 * Use io-page.unix instead of io-page-unix.
 

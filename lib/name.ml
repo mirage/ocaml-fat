@@ -511,13 +511,9 @@ let remove block filename =
     List.rev (List.fold_left (fun acc offset ->
         let b = Cstruct.sub block offset sizeof in
         let delta = Cstruct.create sizeof in
-        begin match unmarshal b with
-          | Lfn lfn ->
-            let lfn' = { lfn with lfn_deleted = true } in
-            marshal delta (Lfn lfn')
-          | Dos dos ->
-            let dos' = { dos with deleted = true } in
-            marshal b (Dos dos')
+        marshal delta begin match unmarshal b with
+          | Lfn lfn -> Lfn { lfn with lfn_deleted = true }
+          | Dos dos -> Dos { dos with deleted = true }
           | End -> assert false
         end;
         Update.from_cstruct (Int64.of_int offset) delta :: acc
