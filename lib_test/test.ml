@@ -334,12 +334,6 @@ let rec allpairs xs ys = match xs with
   | x :: xs -> List.map (fun y -> x, y) ys @ (allpairs xs ys)
 
 let _ =
-  let verbose = ref false in
-  Arg.parse [
-    "-verbose", Arg.Unit (fun _ -> verbose := true), "Run in verbose mode";
-  ] (fun x -> Printf.fprintf stderr "Ignoring argument: %s" x)
-    "Test FAT filesystem";
-
   let write_tests =
     List.map (fun ((filename, (off, len)) as x) ->
         Printf.sprintf "write to %s at %d length %d" filename off len >::
@@ -356,4 +350,4 @@ let _ =
       "test_listdir_subdir" >:: test_listdir_subdir;
       "test_read" >:: test_read;
     ] @ write_tests in
-  run_test_tt ~verbose:!verbose suite
+  run_test_tt_main suite
