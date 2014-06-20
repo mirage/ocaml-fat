@@ -329,6 +329,22 @@ let test_write ((filename: string), (offset, length)) () =
     return () in
   Lwt_main.run t
 
+let test_destroy () =
+  let t =
+    let open BlockError in
+    MemoryIO.connect "" >>= fun device ->
+    let open FsError in
+    MemFS.connect device >>= fun fs ->
+    MemFS.format fs 0x100000L >>= fun () ->
+    MemFS.create fs "/data" >>= fun () ->
+    MemFS.destroy fs "/data" >>= fun () ->
+    MemFS.listdir fs "/" >>= function
+    | [] -> return ()
+    | items ->
+        List.iter (Printf.printf "Item: %s\n") items;
+        assert_failure "Items present after destroy!" in
+  Lwt_main.run t
+
 let rec allpairs xs ys = match xs with
   | [] -> []
   | x :: xs -> List.map (fun y -> x, y) ys @ (allpairs xs ys)
@@ -349,5 +365,6 @@ let _ =
       "test_listdir" >:: test_listdir;
       "test_listdir_subdir" >:: test_listdir_subdir;
       "test_read" >:: test_read;
+      "test_destroy" >:: test_destroy;
     ] @ write_tests in
   run_test_tt_main suite
