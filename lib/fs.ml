@@ -474,8 +474,9 @@ module Make (B: BLOCK_DEVICE
       )
 
   let size x path =
-    stat x path >>|= fun s ->
-    return (`Ok s.size)
+    stat x path >>= function
+    | `Ok s -> return (`Ok s.size)
+    | `Error _ as e -> return e
 
   let listdir x path =
     let path = Path.of_string path in
