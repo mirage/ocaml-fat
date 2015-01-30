@@ -57,8 +57,7 @@ let string_of_filesystem_error = function
 
 module Make (B: BLOCK_DEVICE
   with type 'a io = 'a Lwt.t
-  and type page_aligned_buffer = Cstruct.t)(M: IO_PAGE
-  with type buf = Cstruct.t): (FS
+  and type page_aligned_buffer = Cstruct.t)(M: IO_PAGE): (FS
   with type id = B.t
   and type 'a io = 'a Lwt.t
   and type block_device_error = B.error
@@ -94,7 +93,7 @@ module Make (B: BLOCK_DEVICE
     | `Ok x -> f x
 
   let alloc bytes =
-    let pages = M.(to_cstruct (get ((bytes + 4095) / 4096))) in
+    let pages = M.get_buf ~n:((bytes + 4095) / 4096) () in
     Cstruct.sub pages 0 bytes
 
   (* TODO: this function performs extra data copies *)
