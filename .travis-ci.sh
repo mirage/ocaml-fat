@@ -24,6 +24,7 @@ opam --version
 opam --git-version
 
 opam init 
+opam update
 opam install ${OPAM_PACKAGES}
 
 eval `opam config env`
