@@ -1,6 +1,10 @@
-0.10.2 (trunk)
+0.10.2 (31-1-2015)
 * Fixed destroy, which previously would overwrite the entry with
   uninitialised data, which might not set the deleted flag.
+* Require only `get_buf` from `IO_PAGE`
+* Fix travis.
+* test: use OUnit's arg parser.
+* return errors from size rather than raising Fs_error.
 
 0.10.1 (01-Feb-2013):
 * Use io-page.unix instead of io-page-unix.
