@@ -34,8 +34,7 @@ val string_of_filesystem_error: filesystem_error -> string
 
 module Make (B: V1.BLOCK
   with type 'a io = 'a Lwt.t
-  and type page_aligned_buffer = Cstruct.t)(M: V1.IO_PAGE
-  with type buf = Cstruct.t): (V1.FS
+  and type page_aligned_buffer = Cstruct.t)(M: S.IO_PAGE): (V1.FS
   with type id = B.t
   and type 'a io = 'a Lwt.t
   and type block_device_error = B.error
