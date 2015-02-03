@@ -57,12 +57,7 @@ let string_of_filesystem_error = function
 
 module Make (B: BLOCK_DEVICE
   with type 'a io = 'a Lwt.t
-  and type page_aligned_buffer = Cstruct.t)(M: IO_PAGE): (FS
-  with type id = B.t
-  and type 'a io = 'a Lwt.t
-  and type block_device_error = B.error
-  and type page_aligned_buffer = Cstruct.t
-) = struct
+  and type page_aligned_buffer = Cstruct.t)(M: IO_PAGE) = struct
   type t = {
     device: B.t;
     mutable fs: fs option; (* a filesystem is either formatted or not *)
