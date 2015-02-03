@@ -23,21 +23,17 @@ module Make(FS: FS with
 
   type t = FS.t
   type +'a io = 'a Lwt.t
-  type id = FS.id
+  type id = FS.t
   type page_aligned_buffer = FS.page_aligned_buffer
 
   type error = Unknown_key of string
 
-  let connect id =
-    FS.connect id
-    >>= function
-    | `Error _ -> return (`Error (Unknown_key "connect"))
-    | `Ok t -> return (`Ok t)
+  let connect t = return (`Ok t)
 
   let disconnect id =
     FS.disconnect id
 
-  let id t = FS.id t
+  let id t = t
 
   let read t name off len =
     FS.read t name off len
