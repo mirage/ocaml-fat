@@ -1,4 +1,5 @@
 opam-version: "1.2"
+name: "fat-filesystem"
 authors: ["Dave Scott" "Anil Madhavapeddy"]
 maintainer: "dave@recoil.org"
 homepage:     "https://github.com/mirage/ocaml-fta"
