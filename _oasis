@@ -1,10 +1,10 @@
-OASISFormat: 0.3
+OASISFormat: 0.4
 Name:        fat-filesystem
-Version:     0.10.2
+Version:     0.10.3
 Synopsis:    FAT filesystem manipulation
 Authors:     David Scott, Anil Madhavapeddy
 License:     ISC
-Plugins:     META (0.3)
+Plugins:     META (0.4)
 BuildTools:  ocamlbuild
 
 Library fat

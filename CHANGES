@@ -1,6 +1,10 @@
-* MemoryIO.connect now takes an FS.t, not an FS.id.
+0.10.3 (10-Mar-2015):
+* Add an explicit `connect` function to interfaces. (#39)
+* MemoryIO.connect now takes an FS.t, not an FS.id. (#39)
+* Use centralised Travis CI test scripts.
+* Add local `opam` file for OPAM 1.2 pinning workflow.
 
-0.10.2 (31-1-2015)
+0.10.2 (31-Jan-2015):
 * Fixed destroy, which previously would overwrite the entry with
   uninitialised data, which might not set the deleted flag.
 * Require only `get_buf` from `IO_PAGE`
