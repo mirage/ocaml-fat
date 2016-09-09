@@ -13,7 +13,7 @@ Library fat
   Path:               lib
   Findlibname:        fat-filesystem
   Modules:            Fat_format, Boot_sector, Entry, Name, Path, Fs, Update, SectorMap, Result, MemoryIO, S, KV_RO
-  BuildDepends:       cstruct, re, re.str, mirage-types, lwt
+  BuildDepends:       cstruct, cstruct.ppx,re, re.str, mirage-types, lwt
 
 Executable fat
   CompiledObject:     best

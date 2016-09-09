@@ -276,32 +276,36 @@ let int_of_date x =
   let y = (x.year - 1980) lsl 9 in
   d lor m lor y
 
-cstruct lfn {
-  uint8_t seq;
-  uint8_t utf1[10];
-  uint8_t _0f;
-  uint8_t _0;
-  uint8_t checksum;
-  uint8_t utf2[12];
-  uint16_t _0_2;
-  uint8_t utf3[4]
-} as little_endian
+[%%cstruct
+type lfn = {
+  seq: uint8_t ;
+  utf1: uint8_t [@len 10] ;
+  _0f: uint8_t ;
+  _0: uint8_t ;
+  checksum: uint8_t ;
+  utf2: uint8_t [@len 12] ;
+  _0_2: uint16_t ;
+  utf3: uint8_t [@len 4]
+} [@@little_endian]
+]
 
-cstruct name {
-  uint8_t filename[8];
-  uint8_t ext[3];
-  uint8_t flags;
-  uint8_t _reserved;
-  uint8_t create_time_ms; (* high precision create time 0-199 in units of 10ms *)
-  uint16_t create_time;
-  uint16_t create_date;
-  uint16_t last_access_date;
-  uint16_t ea_index;
-  uint16_t last_modify_time;
-  uint16_t last_modify_date;
-  uint16_t start_cluster;
-  uint32_t file_size
-} as little_endian
+[%%cstruct
+type name = {
+  filename: uint8_t [@len 8] ;
+  ext: uint8_t [@len 3] ;
+  flags: uint8_t ;
+  _reserved: uint8_t ;
+  create_time_ms: uint8_t ; (* high precision create time 0-199 in units of 10ms *)
+  create_time: uint16_t ;
+  create_date: uint16_t ;
+  last_access_date: uint16_t ;
+  ea_index: uint16_t ;
+  last_modify_time: uint16_t ;
+  last_modify_date: uint16_t ;
+  start_cluster: uint16_t ;
+  file_size: uint32_t ;
+} [@@little_endian]
+]
 
 let sizeof = sizeof_name
 let _ = assert(sizeof_lfn = sizeof_name)

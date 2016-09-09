@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 58affed690fbf6a0f1f365a20be743b8)
+# DO NOT EDIT (digest: 6be1f2fc4591a45a457c1cf22f497bcf)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -29,6 +29,7 @@ true: annot, bin_annot
 "lib/s.cmx": for-pack(Fat)
 "lib/KV_RO.cmx": for-pack(Fat)
 <lib/*.ml{,i,y}>: pkg_cstruct
+<lib/*.ml{,i,y}>: pkg_cstruct.ppx
 <lib/*.ml{,i,y}>: pkg_lwt
 <lib/*.ml{,i,y}>: pkg_mirage-types
 <lib/*.ml{,i,y}>: pkg_re
@@ -36,6 +37,7 @@ true: annot, bin_annot
 # Executable fat
 <fat/main.{native,byte}>: pkg_cmdliner
 <fat/main.{native,byte}>: pkg_cstruct
+<fat/main.{native,byte}>: pkg_cstruct.ppx
 <fat/main.{native,byte}>: pkg_io-page
 <fat/main.{native,byte}>: pkg_io-page.unix
 <fat/main.{native,byte}>: pkg_lwt
@@ -46,6 +48,7 @@ true: annot, bin_annot
 <fat/main.{native,byte}>: use_fat
 <fat/*.ml{,i,y}>: pkg_cmdliner
 <fat/*.ml{,i,y}>: pkg_cstruct
+<fat/*.ml{,i,y}>: pkg_cstruct.ppx
 <fat/*.ml{,i,y}>: pkg_io-page
 <fat/*.ml{,i,y}>: pkg_io-page.unix
 <fat/*.ml{,i,y}>: pkg_lwt
@@ -57,6 +60,7 @@ true: annot, bin_annot
 <fat/main.{native,byte}>: custom
 # Executable shell
 <shell/main.{native,byte}>: pkg_cstruct
+<shell/main.{native,byte}>: pkg_cstruct.ppx
 <shell/main.{native,byte}>: pkg_io-page
 <shell/main.{native,byte}>: pkg_io-page.unix
 <shell/main.{native,byte}>: pkg_lwt
@@ -66,6 +70,7 @@ true: annot, bin_annot
 <shell/main.{native,byte}>: pkg_re.str
 <shell/main.{native,byte}>: use_fat
 <shell/*.ml{,i,y}>: pkg_cstruct
+<shell/*.ml{,i,y}>: pkg_cstruct.ppx
 <shell/*.ml{,i,y}>: pkg_io-page
 <shell/*.ml{,i,y}>: pkg_io-page.unix
 <shell/*.ml{,i,y}>: pkg_lwt
@@ -77,6 +82,7 @@ true: annot, bin_annot
 <shell/main.{native,byte}>: custom
 # Executable test
 <lib_test/test.{native,byte}>: pkg_cstruct
+<lib_test/test.{native,byte}>: pkg_cstruct.ppx
 <lib_test/test.{native,byte}>: pkg_io-page
 <lib_test/test.{native,byte}>: pkg_io-page.unix
 <lib_test/test.{native,byte}>: pkg_lwt
@@ -88,6 +94,7 @@ true: annot, bin_annot
 <lib_test/test.{native,byte}>: pkg_re.str
 <lib_test/test.{native,byte}>: use_fat
 <lib_test/*.ml{,i,y}>: pkg_cstruct
+<lib_test/*.ml{,i,y}>: pkg_cstruct.ppx
 <lib_test/*.ml{,i,y}>: pkg_io-page
 <lib_test/*.ml{,i,y}>: pkg_io-page.unix
 <lib_test/*.ml{,i,y}>: pkg_lwt
@@ -100,7 +107,4 @@ true: annot, bin_annot
 <lib_test/*.ml{,i,y}>: use_fat
 <lib_test/test.{native,byte}>: custom
 # OASIS_STOP
-<lib/boot_sector.ml>: syntax_camlp4o, pkg_cstruct.syntax
-<lib/entry.ml>: syntax_camlp4o, pkg_cstruct.syntax
-<lib/name.ml>: syntax_camlp4o, pkg_cstruct.syntax
 true: annot, bin_annot, principal
