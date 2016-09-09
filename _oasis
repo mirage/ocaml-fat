@@ -1,6 +1,6 @@
 OASISFormat: 0.4
 Name:        fat-filesystem
-Version:     0.10.3
+Version:     0.11.0
 Synopsis:    FAT filesystem manipulation
 Authors:     David Scott, Anil Madhavapeddy
 License:     ISC
