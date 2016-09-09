@@ -1,3 +1,6 @@
+0.11.0 (09-Sep-2016):
+* Use the ppx version of cstruct. (#44)
+
 0.10.3 (10-Mar-2015):
 * Add an explicit `connect` function to interfaces. (#39)
 * MemoryIO.connect now takes an FS.t, not an FS.id. (#39)
