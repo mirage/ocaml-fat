@@ -30,24 +30,26 @@ type t = {
 
 let default_oem_name = "ocamlfat"
 
-cstruct t {
-  uint8_t jump_instruction[3];
-  uint8_t oem_name[8];
-  uint16_t bytes_per_sector;
-  uint8_t sectors_per_cluster;
-  uint16_t reserved_sectors;
-  uint8_t number_of_fats;
-  uint16_t number_of_root_dir_entries;
-  uint16_t total_sectors_small;
-  uint8_t media_descriptor;
-  uint16_t sectors_per_fat;
-  uint16_t sectors_per_track;
-  uint16_t heads;
-  uint32_t hidden_preceeding_sectors;
-  uint32_t total_sectors_large;
-  uint8_t boot_code[474];
-  uint16_t signature
-} as little_endian
+[%%cstruct 
+type t = {
+  jump_instruction: uint8_t [@len 3];
+  oem_name: uint8_t [@len 8];
+  bytes_per_sector: uint16_t;
+  sectors_per_cluster: uint8_t;
+  reserved_sectors: uint16_t ;
+  number_of_fats: uint8_t ;
+  number_of_root_dir_entries: uint16_t ;
+  total_sectors_small: uint16_t  ;
+  media_descriptor: uint8_t  ;
+  sectors_per_fat: uint16_t  ;
+  sectors_per_track: uint16_t  ;
+  heads: uint16_t  ;
+  hidden_preceeding_sectors: uint32_t  ;
+  total_sectors_large: uint32_t  ;
+  boot_code: uint8_t   [@len 474] ;
+  signature: uint16_t  ;
+} [@@little_endian]
+]
 
 let sizeof = sizeof_t
 
