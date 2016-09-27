@@ -35,6 +35,12 @@ module Make(FS: FS with
 
   let id t = t
 
+  let mem t name =
+    FS.stat t name >>= function
+    | `Ok _ -> return @@ `Ok true
+    | `Error `Not_a_directory _ | `Error `No_directory_entry _ -> return @@ `Ok false
+    | `Error e -> return @@ `Error e
+
   let read t name off len =
     FS.read t name off len
     >>= function
@@ -46,4 +52,5 @@ module Make(FS: FS with
     >>= function
     | `Error _ -> return (`Error (Unknown_key name))
     | `Ok stat -> return (`Ok (stat.FS.size))
+
 end
