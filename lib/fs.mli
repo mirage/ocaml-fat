@@ -36,8 +36,7 @@ module Make (B: V1.BLOCK
   with type 'a io = 'a Lwt.t
   and type page_aligned_buffer = Cstruct.t)(M: S.IO_PAGE) : sig
   include V1.FS
-    with type id = B.t
-    and type 'a io = 'a Lwt.t
+    with type 'a io = 'a Lwt.t
     and type block_device_error = B.error
     and type page_aligned_buffer = Cstruct.t
   val connect : B.t -> t io
