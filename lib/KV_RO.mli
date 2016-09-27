@@ -15,7 +15,6 @@
  *)
 
 open V1
-open Lwt
 
 module Make(FS : FS with type 'a io = 'a Lwt.t) : sig
   include KV_RO

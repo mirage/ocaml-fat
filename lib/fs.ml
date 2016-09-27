@@ -128,7 +128,7 @@ module Make (B: BLOCK_DEVICE
     return ()
 
   let make size =
-    let open Result in
+    let open Rresult in
     let boot = Boot_sector.make size in
     Boot_sector.detect_format boot >>= fun format ->
 
@@ -140,14 +140,14 @@ module Make (B: BLOCK_DEVICE
       Cstruct.set_uint8 root i 0
     done;
     let fs = { boot = boot; format = format; fat = fat; root = root } in
-    `Ok fs
+    Ok fs
 
   let format t size =
     let device = t.device in
 
     (match make size with
-     | `Ok x -> return x
-     | `Error x -> fail (Failure x)
+     | Ok x -> return x
+     | Error x -> fail (Failure x)
     )
     >>= fun fs ->
     let sector = alloc 512 in
@@ -179,11 +179,11 @@ module Make (B: BLOCK_DEVICE
     let sector = Cstruct.sub page 0 info.B.sector_size in
     B.read device 0L [ sector ] >>|= fun () ->
     ( match Boot_sector.unmarshal sector with
-      | `Error _ -> return None
-      | `Ok boot ->
+      | Error _ -> return None
+      | Ok boot ->
         match Boot_sector.detect_format boot with
-        | `Error reason -> return None
-        | `Ok format ->
+        | Error reason -> return None
+        | Ok format ->
           read_sectors boot.Boot_sector.bytes_per_sector device (Boot_sector.sectors_of_fat boot) >>= fun fat ->
           read_sectors boot.Boot_sector.bytes_per_sector device (Boot_sector.sectors_of_root_dir boot) >>= fun root ->
           return (Some { boot; format; fat; root }) ) >>= fun fs ->

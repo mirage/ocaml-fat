@@ -98,12 +98,12 @@ let test_chains () =
     let open Boot_sector in
     read_sector "lib_test/bootsector.dat" >>= fun bytes ->
     let boot = match unmarshal bytes with
-      | `Error x -> failwith x
-      | `Ok x -> x in
+      | Error x -> failwith x
+      | Ok x -> x in
     let printer = function
-      | `Error e -> e
-      | `Ok x -> Fat_format.to_string x in
-    assert_equal ~printer (`Ok Fat_format.FAT16) (Boot_sector.detect_format boot);
+      | Error e -> e
+      | Ok x -> Fat_format.to_string x in
+    assert_equal ~printer (Ok Fat_format.FAT16) (Boot_sector.detect_format boot);
     read_whole_file "lib_test/root.dat" >>= fun bytes ->
     let all = Name.list bytes in
     read_whole_file "lib_test/fat.dat" >>= fun fat ->
@@ -125,8 +125,8 @@ let test_parse_boot_sector () =
     let open Boot_sector in
     read_sector "lib_test/bootsector.dat" >>= fun bytes ->
     let x = match unmarshal bytes with
-      | `Error x -> failwith x
-      | `Ok x -> x in
+      | Error x -> failwith x
+      | Ok x -> x in
     let check x =
       assert_equal ~printer:(fun x -> x) "mkdosfs\000" x.oem_name;
       assert_equal ~printer:string_of_int 512 x.bytes_per_sector;
@@ -145,8 +145,8 @@ let test_parse_boot_sector () =
     let buf = alloc sizeof in
     marshal buf x;
     let x = match unmarshal buf with
-      | `Error x -> failwith x
-      | `Ok x -> x in
+      | Error x -> failwith x
+      | Ok x -> x in
     check x;
     return () in
   Lwt_main.run t

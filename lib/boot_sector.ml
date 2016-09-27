@@ -14,8 +14,6 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-open Result
-
 type t = {
   oem_name: string;
   bytes_per_sector: int; (* usually 512 *)
@@ -78,13 +76,14 @@ let marshal (buf: Cstruct.t) t =
   set_t_signature buf 0xaa55
 
 let unmarshal (buf: Cstruct.t) : (t, string) result =
+  let open Rresult in
   ( if Cstruct.len buf < sizeof
-    then `Error (Printf.sprintf "boot sector too small: %d < %d" (Cstruct.len buf) sizeof)
-    else `Ok () ) >>= fun () ->
+    then Error (Printf.sprintf "boot sector too small: %d < %d" (Cstruct.len buf) sizeof)
+    else Ok () ) >>= fun () ->
   let signature = get_t_signature buf in
   ( if signature <> 0xaa55
-    then `Error (Printf.sprintf "boot sector signature invalid: %04x <> %04x" signature 0xaa55)
-    else `Ok () ) >>= fun () ->
+    then Error (Printf.sprintf "boot sector signature invalid: %04x <> %04x" signature 0xaa55)
+    else Ok () ) >>= fun () ->
   let oem_name = Cstruct.to_string (get_t_oem_name buf) in
   let bytes_per_sector = get_t_bytes_per_sector buf in
   let sectors_per_cluster = get_t_sectors_per_cluster buf in
@@ -95,7 +94,7 @@ let unmarshal (buf: Cstruct.t) : (t, string) result =
   let sectors_per_fat = get_t_sectors_per_fat buf in
   let hidden_preceeding_sectors = get_t_hidden_preceeding_sectors buf in
   let total_sectors_large = get_t_total_sectors_large buf in
-  `Ok {
+  Ok {
     oem_name; bytes_per_sector; sectors_per_cluster;
     reserved_sectors; number_of_fats; number_of_root_dir_entries;
     total_sectors = max (Int32.of_int total_sectors_small) total_sectors_large;
@@ -147,8 +146,8 @@ let format_of_clusters number_of_clusters =
 exception Unknown_FAT_cluster_type
 
 let detect_format x = match format_of_clusters (clusters x) with
-  | None -> `Error "unknown cluster type"
-  | Some x -> `Ok x
+  | None -> Error "unknown cluster type"
+  | Some x -> Ok x
 
 let make size =
   let bytes_per_sector = 512 in
