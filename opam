@@ -18,6 +18,7 @@ depends: [
   "ocamlbuild" {build}
   "cstruct" {>= "2.0.0"}
   "ppx_tools"
+  "result"
   "rresult"
   "lwt" {>= "2.4.3"}
   "mirage-types" {>= "2.6.1"}
