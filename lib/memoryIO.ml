@@ -53,7 +53,7 @@ let get_info { info } = return info
 
 let connect name =
   if Hashtbl.mem devices name
-  then return (`Ok (Hashtbl.find devices name))
+  then return (Hashtbl.find devices name)
   else
     let map = Int64Map.empty in
     let info = {
@@ -63,7 +63,7 @@ let connect name =
     } in
     let device = { map; info; id = name } in
     Hashtbl.replace devices name device;
-    return (`Ok device)
+    return device
 
 let disconnect t =
   t.map <- Int64Map.empty;

@@ -19,4 +19,4 @@ include S.BLOCK_DEVICE
    and type page_aligned_buffer = Cstruct.t
    and type id = string
 
-val connect : string -> [`Ok of t | `Error of error] io
+val connect : string -> t io

@@ -40,5 +40,5 @@ module Make (B: V1.BLOCK
     and type 'a io = 'a Lwt.t
     and type block_device_error = B.error
     and type page_aligned_buffer = Cstruct.t
-  val connect : B.t -> [`Ok of t | `Error of error] io
+  val connect : B.t -> t io
 end
