@@ -156,12 +156,6 @@ module MemFS = Fs.Make(MemoryIO)(Io_page)
 let kib = 1024L
 let mib = Int64.mul kib 1024L
 
-module BlockError = struct
-  let (>>=) x f = x >>= function
-  | `Ok x -> f x
-  | `Error x -> fail (Failure (Fs.string_of_block_error x))
-end
-
 module FsError = struct
   let (>>=) x f = x >>= function
     | `Ok x -> f x
@@ -170,10 +164,9 @@ end
 
 let test_create () =
   let t =
-    let open BlockError in
     MemoryIO.connect "" >>= fun device ->
-    let open FsError in
     MemFS.connect device >>= fun fs ->
+    let open FsError in
     MemFS.format fs (Int64.mul 16L mib) >>= fun () ->
     let filename = "HELLO.TXT" in
     MemFS.create fs filename >>= fun () ->
@@ -233,10 +226,9 @@ let interesting_filenames = [
 
 let test_listdir () =
   let t =
-    let open BlockError in
     MemoryIO.connect "" >>= fun device ->
-    let open FsError in
     MemFS.connect device >>= fun fs ->
+    let open FsError in
     MemFS.format fs (Int64.mul 16L mib) >>= fun () ->
     let filename = "hello" in
     MemFS.create fs filename >>= fun () ->
@@ -249,10 +241,9 @@ let test_listdir () =
 
 let test_listdir_subdir () =
   let t =
-    let open BlockError in
     MemoryIO.connect "" >>= fun device ->
-    let open FsError in
     MemFS.connect device >>= fun fs ->
+    let open FsError in
     MemFS.format fs (Int64.mul 16L mib) >>= fun () ->
     let dirname = "hello" in
     MemFS.mkdir fs dirname >>= fun () ->
@@ -274,10 +265,9 @@ let test_listdir_subdir () =
 
 let test_read () =
   let t =
-    let open BlockError in
     MemoryIO.connect "" >>= fun device ->
-    let open FsError in
     MemFS.connect device >>= fun fs ->
+    let open FsError in
     MemFS.format fs (Int64.mul 16L mib) >>= fun () ->
     let filename = "hello" in
     let length = 512 in
@@ -302,10 +292,9 @@ let test_read () =
    read(write(data)) = data; and that files are extended properly *)
 let test_write ((filename: string), (offset, length)) () =
   let t =
-    let open BlockError in
     MemoryIO.connect "" >>= fun device ->
-    let open FsError in
     MemFS.connect device >>= fun fs ->
+    let open FsError in
     MemFS.format fs (Int64.mul 16L mib) >>= fun () ->
     let open Lwt in
     ( match List.rev (Path.to_string_list (Path.of_string filename)) with
@@ -331,10 +320,9 @@ let test_write ((filename: string), (offset, length)) () =
 
 let test_destroy () =
   let t =
-    let open BlockError in
     MemoryIO.connect "" >>= fun device ->
-    let open FsError in
     MemFS.connect device >>= fun fs ->
+    let open FsError in
     MemFS.format fs 0x100000L >>= fun () ->
     MemFS.create fs "/data" >>= fun () ->
     MemFS.destroy fs "/data" >>= fun () ->

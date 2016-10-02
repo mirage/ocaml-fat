@@ -21,8 +21,8 @@ let (>>>) m f = m >>= function
 | `Ok x -> f x
 
 let main filename create_size =
-  Block.connect filename >>|= fun device ->
-  Test.connect device >>> fun fs ->
+  Block.connect filename >>= fun device ->
+  Test.connect device >>= fun fs ->
 (*
   ( match create_size with
     | None -> Test.connect device

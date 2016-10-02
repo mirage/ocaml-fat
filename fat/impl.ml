@@ -24,10 +24,6 @@ open Common
    have specific code to handle is to 'fail' the Lwt thread with
    the exception Failure "user-readable message". *)
 
-let (>>|=) m f = m >>= function
-  | `Error e -> fail (Failure (Fs.string_of_block_error e))
-  | `Ok x -> f x
-
 let (>>*=) m f = m >>= function
   | `Error (`Block_device e) -> fail (Failure (Fs.string_of_block_error e))
   | `Error e -> fail (Failure (Fs.string_of_filesystem_error e))
@@ -96,8 +92,8 @@ let create common filename size =
     Block.really_write fd sector >>= fun () ->
     Lwt_unix.close fd >>= fun () ->
 
-    Block.connect (buffered common filename) >>|= fun device ->
-    Filesystem.connect device >>*= fun fs ->
+    Block.connect (buffered common filename) >>= fun device ->
+    Filesystem.connect device >>= fun fs ->
     if common.verb then Printf.printf "Created %s\n%!" filename;
     Filesystem.format fs size >>*= fun () ->
     if common.verb then Printf.printf "Filesystem of size %Ld created\n%!" size;
@@ -109,9 +105,9 @@ let add common filename files =
   let files = List.tl files in
   Printf.fprintf stderr "add %s <- [ %s ]\n%!" filename (String.concat "; " files);
   let t =
-    Block.connect (buffered common filename) >>|= fun device ->
+    Block.connect (buffered common filename) >>= fun device ->
     if common.verb then Printf.printf "Opened %s\n%!" filename;
-    Filesystem.connect device >>*= fun fs ->
+    Filesystem.connect device >>= fun fs ->
     let rec copyin outside_path inside_path file =
       let outside_path = Filename.concat outside_path file in
       let inside_path = Filename.concat inside_path file in
@@ -141,8 +137,8 @@ let add common filename files =
 
 let list common filename =
   let t =
-    Block.connect (buffered common filename) >>|= fun device ->
-    Filesystem.connect device >>*= fun fs ->
+    Block.connect (buffered common filename) >>= fun device ->
+    Filesystem.connect device >>= fun fs ->
     let rec loop curdir =
       Filesystem.listdir fs curdir >>*= fun children ->
       Lwt_list.iter_s
@@ -160,8 +156,8 @@ let list common filename =
 
 let cat common filename path =
   let t =
-    Block.connect (buffered common filename) >>|= fun device ->
-    Filesystem.connect device >>*= fun fs ->
+    Block.connect (buffered common filename) >>= fun device ->
+    Filesystem.connect device >>= fun fs ->
     let rec loop offset =
       Filesystem.read fs path offset 1024 >>*= fun bufs ->
       List.iter (fun x -> print_string (Cstruct.to_string x)) bufs;

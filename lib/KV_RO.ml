@@ -28,7 +28,7 @@ module Make(FS: FS with
 
   type error = Unknown_key of string
 
-  let connect t = return (`Ok t)
+  let connect t = return t
 
   let disconnect id =
     FS.disconnect id

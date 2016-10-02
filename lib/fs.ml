@@ -187,7 +187,7 @@ module Make (B: BLOCK_DEVICE
           read_sectors boot.Boot_sector.bytes_per_sector device (Boot_sector.sectors_of_fat boot) >>= fun fat ->
           read_sectors boot.Boot_sector.bytes_per_sector device (Boot_sector.sectors_of_root_dir boot) >>= fun root ->
           return (Some { boot; format; fat; root }) ) >>= fun fs ->
-    return (`Ok { device; fs })
+    return ({ device; fs })
 
   let disconnect _ = return ()
 
