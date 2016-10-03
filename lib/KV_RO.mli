@@ -16,7 +16,10 @@
 
 open V1
 
-module Make(FS : FS with type 'a io = 'a Lwt.t) : sig
+module Make(FS : FS with type 'a io = 'a Lwt.t and type page_aligned_buffer = Cstruct.t) : sig
   include KV_RO
+    with type 'a io = 'a Lwt.t
+     and type page_aligned_buffer = Cstruct.t
+
   val connect : FS.t -> t FS.io
 end
