@@ -26,7 +26,7 @@ module Make(FS: FS with
   type id = FS.t
   type page_aligned_buffer = FS.page_aligned_buffer
 
-  type error = Unknown_key of string
+  type error = Unknown_key of string | Failure of string
 
   let connect t = return t
 
@@ -35,15 +35,22 @@ module Make(FS: FS with
 
   let id t = t
 
+  let mem t name =
+    FS.stat t name >|= function
+    | `Ok _ -> `Ok true
+    | `Error `Not_a_directory _ | `Error `No_directory_entry _ -> `Ok false
+    | `Error _ -> `Error (Failure "Failure in the underlying filesystem")
+
   let read t name off len =
-    FS.read t name off len
-    >>= function
-    | `Error _ -> return (`Error (Unknown_key name))
-    | `Ok l -> return (`Ok l)
+    FS.read t name off len >|= function
+    | `Error `Not_a_directory _ | `Error `No_directory_entry _ -> `Error (Unknown_key name)
+    | `Error _ -> `Error (Failure name)
+    | `Ok l -> `Ok l
 
   let size t name =
-    FS.stat t name
-    >>= function
-    | `Error _ -> return (`Error (Unknown_key name))
-    | `Ok stat -> return (`Ok (stat.FS.size))
+    FS.stat t name >|= function
+    | `Error `Not_a_directory _ | `Error `No_directory_entry _ -> `Error (Unknown_key name)
+    | `Error _ -> `Error (Failure name)
+    | `Ok stat -> `Ok (stat.FS.size)
+
 end

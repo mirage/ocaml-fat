@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 2a18a52246061cc96029e574457a25ef)
+# DO NOT EDIT (digest: 8ff44075ee1b4010187f5bd8c1b7d885)
 Fat_format
 Boot_sector
 Entry
@@ -8,7 +8,6 @@ Path
 Fs
 Update
 SectorMap
-Result
 MemoryIO
 S
 KV_RO

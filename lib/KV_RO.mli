@@ -1,5 +1,5 @@
 (*
- * Copyright (C) 2011-2013 Citrix Systems Inc
+ * Copyright (C) 2013 Anil Madhavapeddy <anil@recoil.org>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -14,11 +14,9 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-type ('a, 'b) result = [
-  | `Ok of 'a
-  | `Error of 'b
-]
+open V1
 
-let ( >>= ) x f = match x with
-  | `Error y -> `Error y
-  | `Ok z -> f z
+module Make(FS : FS with type 'a io = 'a Lwt.t) : sig
+  include KV_RO
+  val connect : FS.t -> [`Error of error | `Ok of t] FS.io
+end

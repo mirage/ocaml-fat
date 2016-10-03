@@ -1,8 +1,8 @@
 # OASIS_START
-# DO NOT EDIT (digest: 01d8de93c6eb4a15a1a4509fc45eb076)
+# DO NOT EDIT (digest: c15a0b94276d5cdc0b8c46005b010455)
 version = "0.11.0"
 description = "FAT filesystem manipulation"
-requires = "cstruct cstruct.ppx re re.str mirage-types lwt"
+requires = "cstruct cstruct.ppx re re.str mirage-types lwt result rresult"
 archive(byte) = "fat.cma"
 archive(byte, plugin) = "fat.cma"
 archive(native) = "fat.cmxa"
