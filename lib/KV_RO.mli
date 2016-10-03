@@ -18,5 +18,5 @@ open V1
 
 module Make(FS : FS with type 'a io = 'a Lwt.t) : sig
   include KV_RO
-  val connect : FS.t -> [`Error of error | `Ok of t] FS.io
+  val connect : FS.t -> t FS.io
 end

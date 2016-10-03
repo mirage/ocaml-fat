@@ -14,6 +14,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
+open Result
+
 type t = {
   oem_name: string;
   bytes_per_sector: int; (* usually 512 *)
