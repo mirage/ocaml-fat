@@ -19,6 +19,7 @@ open Lwt
 open Fat
 open S
 open Block
+open Result
 
 let alloc bytes =
   let pages = Io_page.(to_cstruct (get ((bytes + 4095) / 4096))) in
