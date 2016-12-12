@@ -25,12 +25,6 @@ type page_aligned_buffer = Cstruct.t
 
 let alloc = Cstruct.create
 
-type error = [
-  | `Unknown of string
-  | `Unimplemented
-  | `Is_read_only
-  | `Disconnected ]
-
 type info = {
   read_write: bool;
   sector_size: int;
@@ -44,6 +38,8 @@ type t = {
   info: info;
   id: id;
 }
+
+type error = V1.Block.error
 
 let id t = t.id
 
@@ -70,7 +66,7 @@ let disconnect t =
   return ()
 
 let rec read x sector_start buffers = match buffers with
-  | [] -> return (`Ok ())
+  | [] -> return (Result.Ok ())
   | b :: bs ->
     if Int64Map.mem sector_start x.map
     then Cstruct.blit (Int64Map.find sector_start x.map) 0 b 0 512
@@ -85,7 +81,7 @@ let rec read x sector_start buffers = match buffers with
        else bs)
 
 let rec write x sector_start buffers = match buffers with
-  | [] -> return (`Ok ())
+  | [] -> return (Result.Ok ())
   | b :: bs ->
     if Cstruct.len b = 512 then begin
       x.map <- Int64Map.add sector_start b x.map;
