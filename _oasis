@@ -21,7 +21,8 @@ Executable fat
   MainIs:             main.ml
   Custom:             true
   Install:            false
-  BuildDepends:       fat-filesystem, mirage-block-unix, cmdliner, io-page, io-page.unix
+  BuildDepends:       fat-filesystem, mirage-block-unix, cmdliner, mirage-runtime,
+    io-page, io-page.unix
 
 Executable shell
   CompiledObject:     best
@@ -37,7 +38,8 @@ Executable test
   MainIs:             test.ml
   Custom:             true
   Install:            false
-  BuildDepends:       lwt, lwt.unix, fat-filesystem, cstruct, oUnit, mirage-block-unix, io-page, io-page.unix
+  BuildDepends:       lwt, lwt.unix, fat-filesystem, cstruct, oUnit,
+    mirage-runtime, mirage-block-unix, io-page, io-page.unix
 
 Test test
   Command:            ./test.native

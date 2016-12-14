@@ -25,8 +25,6 @@ module Make(FS: FS with
   type +'a io = 'a Lwt.t
   type page_aligned_buffer = FS.page_aligned_buffer
 
-  type error = Unknown_key of string | Failure of string
-
   let connect t = return t
 
   let disconnect t =
@@ -34,20 +32,20 @@ module Make(FS: FS with
 
   let mem t name =
     FS.stat t name >|= function
-    | `Ok _ -> `Ok true
-    | `Error `Not_a_directory _ | `Error `No_directory_entry _ -> `Ok false
-    | `Error _ -> `Error (Failure "Failure in the underlying filesystem")
+    | Result.Ok _ -> Result.Ok true
+    | Result.Error `Not_a_directory | Result.Error `No_directory_entry -> Result.Ok false
+    | Result.Error _ -> Result.Error (`Msg "Failure in the underlying filesystem")
 
   let read t name off len =
-    FS.read t name off len >|= function
-    | `Error `Not_a_directory _ | `Error `No_directory_entry _ -> `Error (Unknown_key name)
-    | `Error _ -> `Error (Failure name)
-    | `Ok l -> `Ok l
+    FS.read t name (Int64.to_int off) (Int64.to_int len) >|= function
+    | Result.Error `Not_a_directory | Result.Error `No_directory_entry -> Result.Error `Unknown_key
+    | Result.Error _ -> Result.Error (`Msg name)
+    | Result.Ok l -> Result.Ok l
 
   let size t name =
     FS.stat t name >|= function
-    | `Error `Not_a_directory _ | `Error `No_directory_entry _ -> `Error (Unknown_key name)
-    | `Error _ -> `Error (Failure name)
-    | `Ok stat -> `Ok (stat.FS.size)
+    | Result.Error `Not_a_directory | Result.Error `No_directory_entry -> Result.Error `Unknown_key
+    | Result.Error _ -> Result.Error (`Msg name)
+    | Result.Ok stat -> Result.Ok (stat.FS.size)
 
 end

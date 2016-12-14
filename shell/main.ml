@@ -9,20 +9,26 @@ let with_file flags filename f =
   Lwt_unix.openfile filename flags 0o0 >>= fun file ->
   catch (fun () -> f file >>= fun x -> Lwt_unix.close file >>= fun () -> return x) (fun x -> Lwt_unix.close file >>= fun () -> fail x)
 
-exception Block_error of Block.error
-
 let (>>|=) m f = m >>= function
-| `Error e -> fail (Block_error e)
-| `Ok x -> f x
+  | Result.Error (`Msg m) -> fail (Failure m)
+  | Result.Error `Unimplemented -> fail (Failure "Block layer unimplemented")
+  | Result.Error `Disconnected -> fail (Failure "Block layer disconnected")
+  | Result.Error `Is_read_only -> fail (Failure "Block layer is read only")
+  | Result.Ok x -> f x
 
-let (>>>) m f = m >>= function
-| `Error (`Block_device e) -> fail (Block_error e)
-| `Error #Test.error -> fail (Failure "Filesystem error")
-| `Ok x -> f x
+let (>>*=) m f = m >>= function
+  | Result.Error (`Msg m) -> fail (Failure m)
+  | Result.Error `Directory_not_empty -> fail (Failure "Directory not empty")
+  | Result.Error `File_already_exists -> fail (Failure "File already exists")
+  | Result.Error `Is_a_directory -> fail (Failure "Is a directory")
+  | Result.Error `No_directory_entry -> fail (Failure "No directory entry")
+  | Result.Error `No_space -> fail (Failure "No space")
+  | Result.Error `Not_a_directory -> fail (Failure "Not a directory")
+  | Result.Ok x -> f x
 
 let main filename create_size =
   Block.connect filename >>= fun device ->
-  Test.connect device >>= fun fs ->
+  Test.connect device >>|= fun fs ->
 (*
   ( match create_size with
     | None -> Test.connect device
@@ -39,10 +45,10 @@ let main filename create_size =
 
   let do_dir dir =
     let path = Path.cd !cwd dir in
-    stat fs (Path.to_string path) >>> function
+    stat fs (Path.to_string path) >>*= function
     | { directory = true } ->
       let file = Path.to_string path in
-      listdir fs file >>> fun xs ->
+      listdir fs file >>*= fun xs ->
       Printf.printf "Directory for A:%s\n\n" (Path.to_string path);
       List.iter (fun x -> Printf.printf "%s\n" x) xs;
       Printf.printf "%9d files\n%!" (List.length xs);
@@ -52,13 +58,13 @@ let main filename create_size =
       return () in
   let do_type file =
     let path = Path.cd !cwd file in
-    stat fs (Path.to_string path) >>> function
+    stat fs (Path.to_string path) >>*= function
     | { directory = true } ->
       Printf.printf "Is a directory.\n%!";
       return ()
     | { directory = false; size } ->
       let file_size = Int64.to_int size in
-      read fs (Path.to_string path) 0 file_size >>> fun datas ->
+      read fs (Path.to_string path) 0 file_size >>*= fun datas ->
       let n = ref 0 in
       List.iter (fun buf ->
         Printf.printf "%s" (Cstruct.to_string buf);
@@ -70,10 +76,10 @@ let main filename create_size =
       return () in
   let do_del file =
     let path = Path.cd !cwd file in
-    destroy fs (Path.to_string path) >>> fun () -> return () in
+    destroy fs (Path.to_string path) >>*= fun () -> return () in
   let do_cd dir =
     let path = Path.cd !cwd dir in
-    stat fs (Path.to_string path) >>> function
+    stat fs (Path.to_string path) >>*= function
     | { directory = true } ->
       cwd := path;
       return ()
@@ -82,13 +88,13 @@ let main filename create_size =
       return () in
   let do_touch x =
     let path = Path.cd !cwd x in
-    create fs (Path.to_string path) >>> fun () -> return () in
-  let do_mkdir x = 
+    create fs (Path.to_string path) >>*= fun () -> return () in
+  let do_mkdir x =
     let path = Path.cd !cwd x in
-    mkdir fs (Path.to_string path) >>> fun () -> return () in
-  let do_rmdir x = 
+    mkdir fs (Path.to_string path) >>*= fun () -> return () in
+  let do_rmdir x =
     let path = Path.cd !cwd x in
-    destroy fs (Path.to_string path) >>> fun () -> return () in
+    destroy fs (Path.to_string path) >>*= fun () -> return () in
   let copy_file_in outside inside =
     Lwt_unix.lstat (Path.to_string outside) >>= fun stats ->
     let block_size = 1024 * 1024 in
@@ -99,7 +105,7 @@ let main filename create_size =
           let this = min remaining block_size in
           let frag = Cstruct.sub block 0 this in
           Block.really_read ifd frag >>= fun () ->
-          write fs (Path.to_string inside) offset frag >>> fun () ->
+          write fs (Path.to_string inside) offset frag >>*= fun () ->
           loop (offset + this) (remaining - this) in
         loop 0 stats.Lwt_unix.st_size
       ) in
@@ -133,17 +139,17 @@ let main filename create_size =
 
   let deltree x =
     let rec inner path =
-      stat fs (Path.to_string path) >>> function
+      stat fs (Path.to_string path) >>*= function
       | { directory = true } ->
         let file = Path.to_string path in
-        listdir fs file >>> fun xs ->
+        listdir fs file >>*= fun xs ->
         Lwt_list.iter_s
           (fun dir ->
             inner (Path.cd path dir)
 	) xs >>= fun () ->
-        destroy fs (Path.to_string path) >>> fun () -> return ()
+        destroy fs (Path.to_string path) >>*= fun () -> return ()
       | { directory = false } ->
-        destroy fs (Path.to_string path) >>> fun () -> return () in
+        destroy fs (Path.to_string path) >>*= fun () -> return () in
     inner (snd(parse_path x)) in
 
   let space = Re_str.regexp_string " " in

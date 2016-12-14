@@ -24,10 +24,29 @@ open Common
    have specific code to handle is to 'fail' the Lwt thread with
    the exception Failure "user-readable message". *)
 
+let (>>|=) m f = m >>= function
+  | Result.Error (`Msg m) -> fail (Failure m)
+  | Result.Error `Unimplemented -> fail (Failure "Block layer unimplemented")
+  | Result.Error `Disconnected -> fail (Failure "Block layer disconnected")
+  | Result.Error `Is_read_only -> fail (Failure "Block layer is read only")
+  | Result.Ok x -> f x
+
 let (>>*=) m f = m >>= function
-  | `Error (`Block_device e) -> fail (Failure (Fs.string_of_block_error e))
-  | `Error e -> fail (Failure (Fs.string_of_filesystem_error e))
-  | `Ok x -> f x
+  | Result.Error (`Msg m) -> fail (Failure m)
+  | Result.Error `Directory_not_empty -> fail (Failure "Directory not empty")
+  | Result.Error `File_already_exists -> fail (Failure "File already exists")
+  | Result.Error `Is_a_directory -> fail (Failure "Is a directory")
+  | Result.Error `No_directory_entry -> fail (Failure "No directory entry")
+  | Result.Error `No_space -> fail (Failure "No space")
+  | Result.Error `Not_a_directory -> fail (Failure "Not a directory")
+  | Result.Ok x -> f x
+
+let rec iter_s f = function
+  | [] -> Lwt.return (Result.Ok ())
+  | x :: xs ->
+    f x >>= function
+    | Result.Error e -> Lwt.return (Result.Error e)
+    | Result.Ok () -> iter_s f xs
 
 let alloc bytes =
   let pages = Io_page.(to_cstruct (get ((bytes + 4095) / 4096))) in
@@ -51,12 +70,13 @@ let copy_file_in fs outside inside =
           let frag = Cstruct.sub block 0 this in
           Block.really_read ifd frag >>= fun () ->
           Filesystem.write fs inside offset frag >>= function
-          | `Ok () -> loop (offset + this) (remaining - this)
-          | `Error e ->
-            let lowlevel_error = Fs.string_of_filesystem_error e in
-            fail (Failure (Printf.sprintf "%s while copying %s -> %s, at offset %d with %d bytes remaining"
-              lowlevel_error outside inside offset remaining
-            )) in
+          | Result.Ok () -> loop (offset + this) (remaining - this)
+          | Result.Error e ->
+            let b = Buffer.create 20 in
+            let ppf = Format.formatter_of_buffer b in
+            let k ppf = Format.pp_print_flush ppf (); fail (Failure (Buffer.contents b)) in
+            Format.kfprintf k ppf "%a while copying %s -> %s, at offset %d with %d bytes remaining"
+              Mirage_pp.pp_fs_write_error e outside inside offset remaining in
       loop 0 stats.Lwt_unix.st_size
     )
 
@@ -93,9 +113,7 @@ let create common filename size =
     Lwt_unix.close fd >>= fun () ->
 
     Block.connect (buffered common filename) >>= fun device ->
-    Filesystem.connect device >>= fun fs ->
-    if common.verb then Printf.printf "Created %s\n%!" filename;
-    Filesystem.format fs size >>*= fun () ->
+    Filesystem.format device size >>*= fun _fs ->
     if common.verb then Printf.printf "Filesystem of size %Ld created\n%!" size;
     return () in
   run t
@@ -107,7 +125,7 @@ let add common filename files =
   let t =
     Block.connect (buffered common filename) >>= fun device ->
     if common.verb then Printf.printf "Opened %s\n%!" filename;
-    Filesystem.connect device >>= fun fs ->
+    Filesystem.connect device >>|= fun fs ->
     let rec copyin outside_path inside_path file =
       let outside_path = Filename.concat outside_path file in
       let inside_path = Filename.concat inside_path file in
@@ -138,7 +156,7 @@ let add common filename files =
 let list common filename =
   let t =
     Block.connect (buffered common filename) >>= fun device ->
-    Filesystem.connect device >>= fun fs ->
+    Filesystem.connect device >>|= fun fs ->
     let rec loop curdir =
       Filesystem.listdir fs curdir >>*= fun children ->
       Lwt_list.iter_s
@@ -157,7 +175,7 @@ let list common filename =
 let cat common filename path =
   let t =
     Block.connect (buffered common filename) >>= fun device ->
-    Filesystem.connect device >>= fun fs ->
+    Filesystem.connect device >>|= fun fs ->
     let rec loop offset =
       Filesystem.read fs path offset 1024 >>*= fun bufs ->
       List.iter (fun x -> print_string (Cstruct.to_string x)) bufs;

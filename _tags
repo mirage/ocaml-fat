@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 10b5a5533bbbf4d3bdeb84b24d2fa168)
+# DO NOT EDIT (digest: b9bc2f050d0bcb48d22104e9283d6072)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -43,6 +43,7 @@ true: annot, bin_annot
 <fat/main.{native,byte}>: pkg_io-page.unix
 <fat/main.{native,byte}>: pkg_lwt
 <fat/main.{native,byte}>: pkg_mirage-block-unix
+<fat/main.{native,byte}>: pkg_mirage-runtime
 <fat/main.{native,byte}>: pkg_mirage-types
 <fat/main.{native,byte}>: pkg_re
 <fat/main.{native,byte}>: pkg_re.str
@@ -56,6 +57,7 @@ true: annot, bin_annot
 <fat/*.ml{,i,y}>: pkg_io-page.unix
 <fat/*.ml{,i,y}>: pkg_lwt
 <fat/*.ml{,i,y}>: pkg_mirage-block-unix
+<fat/*.ml{,i,y}>: pkg_mirage-runtime
 <fat/*.ml{,i,y}>: pkg_mirage-types
 <fat/*.ml{,i,y}>: pkg_re
 <fat/*.ml{,i,y}>: pkg_re.str
@@ -97,6 +99,7 @@ true: annot, bin_annot
 <lib_test/test.{native,byte}>: pkg_lwt
 <lib_test/test.{native,byte}>: pkg_lwt.unix
 <lib_test/test.{native,byte}>: pkg_mirage-block-unix
+<lib_test/test.{native,byte}>: pkg_mirage-runtime
 <lib_test/test.{native,byte}>: pkg_mirage-types
 <lib_test/test.{native,byte}>: pkg_oUnit
 <lib_test/test.{native,byte}>: pkg_re
@@ -111,6 +114,7 @@ true: annot, bin_annot
 <lib_test/*.ml{,i,y}>: pkg_lwt
 <lib_test/*.ml{,i,y}>: pkg_lwt.unix
 <lib_test/*.ml{,i,y}>: pkg_mirage-block-unix
+<lib_test/*.ml{,i,y}>: pkg_mirage-runtime
 <lib_test/*.ml{,i,y}>: pkg_mirage-types
 <lib_test/*.ml{,i,y}>: pkg_oUnit
 <lib_test/*.ml{,i,y}>: pkg_re
