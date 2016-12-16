@@ -1,6 +1,10 @@
+S lib/*
+B _build/*
+
 PKG lwt
 PKG mirage
 PKG mirage-types
-PKG mirage-fs-unix
+PKG mirage-types-lwt
+PKG mirage-runtime
 PKG cstruct
 PKG cstruct.ppx

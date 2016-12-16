@@ -28,7 +28,7 @@ let (>>*=) m f = m >>= function
 
 let main filename create_size =
   Block.connect filename >>= fun device ->
-  Test.connect device >>|= fun fs ->
+  Test.connect device >>= fun fs ->
 (*
   ( match create_size with
     | None -> Test.connect device

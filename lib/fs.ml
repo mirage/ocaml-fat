@@ -189,20 +189,23 @@ module Make (B: BLOCK_DEVICE
     return (Ok t)
 
   let connect device =
+    let (>>!=) x f =
+      x >>= function | Ok y -> f y | Error e -> fail @@ (Failure (Format.asprintf "Block error: %a" Mirage_pp.pp_block_error e))
+    in
     let page = alloc 4096 in
     B.get_info device >>= fun info ->
     let sector = Cstruct.sub page 0 info.B.sector_size in
-    B.read device 0L [ sector ] >>|= fun () ->
+    B.read device 0L [ sector ] >>!= fun () ->
     ( match Boot_sector.unmarshal sector with
-      | Error reason -> return (Result.Error (`Msg reason))
+      | Error reason -> fail @@ Failure ("error reading first sector of block device: " ^ reason)
       | Ok boot ->
         match Boot_sector.detect_format boot with
-        | Error reason -> return (Result.Error (`Msg reason))
+        | Error reason -> fail @@ Failure ("error detecting the format of block device: " ^ reason)
         | Ok format ->
-          read_sectors boot.Boot_sector.bytes_per_sector device (Boot_sector.sectors_of_fat boot) >>|= fun fat ->
-          read_sectors boot.Boot_sector.bytes_per_sector device (Boot_sector.sectors_of_root_dir boot) >>|= fun root ->
-          return (Result.Ok { boot; format; fat; root }) ) >>|= fun fs ->
-    return (Result.Ok { device; fs })
+          read_sectors boot.Boot_sector.bytes_per_sector device (Boot_sector.sectors_of_fat boot) >>!= fun fat ->
+          read_sectors boot.Boot_sector.bytes_per_sector device (Boot_sector.sectors_of_root_dir boot) >>!= fun root ->
+          return { boot; format; fat; root } )
+    >>= fun fs -> return { device; fs }
 
   let disconnect _ = return ()
 
