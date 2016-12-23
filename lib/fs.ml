@@ -16,6 +16,8 @@
 
 open Lwt
 open S
+open Mirage_block
+open Result
 
 type fs = {
   boot: Boot_sector.t;
@@ -82,26 +84,24 @@ module Make (B: BLOCK_DEVICE
 
   module BlockError = struct
     let (>>=) m f = m >>= function
-    | Result.Error (`Msg m) -> Lwt.return (Result.Error (`Msg m))
-    | Result.Error `Unimplemented -> Lwt.return (Result.Error (`Msg "Block layer unimplemented"))
-    | Result.Error `Disconnected -> Lwt.return (Result.Error (`Msg "Block layer disconnected"))
-    | Result.Error `Is_read_only -> Lwt.return (Result.Error (`Msg "Block layer is read only"))
-    | Result.Ok x -> f x
+    | Error (`Msg m) -> Lwt.return (Error (`Msg m))
+    | Error (#Mirage_block.write_error as e) ->
+      Lwt.return (Error (`Msg (Fmt.strf "%a" B.pp_write_error e)))
+    | Ok x -> f x
   end
 
   let (>>|=) m f = m >>= function
-    | Result.Error (`Msg m) -> Lwt.return (Result.Error (`Msg m))
-    | Result.Error `Unimplemented -> Lwt.return (Result.Error (`Msg "Block layer unimplemented"))
-    | Result.Error `Disconnected -> Lwt.return (Result.Error (`Msg "Block layer disconnected"))
-    | Result.Error `Is_read_only -> Lwt.return (Result.Error (`Msg "Block layer is read only"))
-    | Result.Ok x -> f x
+    | Error (`Msg m) -> Lwt.return (Error (`Msg m))
+    | Error (#Mirage_block.write_error as e) ->
+      Lwt.return (Error (`Msg (Fmt.strf "%a" B.pp_write_error e)))
+    | Ok x -> f x
 
   let rec iter_s f = function
-    | [] -> Lwt.return (Result.Ok ())
+    | [] -> Lwt.return (Ok ())
     | x :: xs ->
       f x >>= function
-      | Result.Error e -> Lwt.return (Result.Error e)
-      | Result.Ok () -> iter_s f xs
+      | Error e -> Lwt.return (Error e)
+      | Ok () -> iter_s f xs
 
   let alloc bytes =
     let pages = M.get_buf ~n:((bytes + 4095) / 4096) () in
@@ -118,15 +118,15 @@ module Make (B: BLOCK_DEVICE
     let page = alloc 4096 in
     B.get_info device >>= fun info ->
     let rec loop = function
-      | [] -> return (Result.Ok ())
+      | [] -> return (Ok ())
       | (sector, buffer) :: xs ->
         let offset = sector * bps in
-        let sector' = offset / info.B.sector_size in
+        let sector' = offset / info.sector_size in
         B.read device (Int64.of_int sector') [ page ] >>|= fun () ->
         Cstruct.blit page (offset mod info.B.sector_size) buffer 0 512;
         loop xs in
     loop (List.combine xs (split buf)) >>|= fun () ->
-    return (Result.Ok buf)
+    return (Ok buf)
 
   let write_update device fs ({ Update.offset = offset; data = data } as update) =
     B.get_info device >>= fun info ->
@@ -141,7 +141,7 @@ module Make (B: BLOCK_DEVICE
     let sector = Cstruct.sub page (Int64.(to_int (rem sector_number (of_int sectors_per_block))) * bps) bps in
     Update.apply sector { update with Update.offset = sector_offset };
     B.write device sector_number' [ page ] >>|= fun () ->
-    return (Result.Ok ())
+    return (Ok ())
 
   let make size =
     let open Rresult in
@@ -225,29 +225,29 @@ module Make (B: BLOCK_DEVICE
       stored at [path] *)
   let find device fs path =
     let readdir = function
-      | Dir ds -> return (Result.Ok ds)
+      | Dir ds -> return (Ok ds)
       | File d ->
         read_whole_file device fs d >>|= fun buf ->
-        return (Result.Ok (Name.list buf)) in
+        return (Ok (Name.list buf)) in
     let rec inner sofar current = function
       | [] ->
         begin match current with
-          | Dir ds -> return (Result.Ok (Dir ds))
+          | Dir ds -> return (Ok (Dir ds))
           | File { Name.dos = _, { Name.subdir = true } } ->
             readdir current >>|= fun names ->
-            return (Result.Ok (Dir names))
+            return (Ok (Dir names))
           | File ( { Name.dos = _, { Name.subdir = false } } as d ) ->
-            return (Result.Ok (File d))
+            return (Ok (File d))
         end
       | p :: ps ->
         readdir current >>|= fun entries ->
         begin match Name.find p entries, ps with
           | Some { Name.dos = _, { Name.subdir = false } }, _ :: _ ->
-            return (Result.Error `Not_a_directory)
+            return (Error `Not_a_directory)
           | Some d, _ ->
             inner (p::sofar) (File d) ps
           | None, _ ->
-            return (Result.Error `No_directory_entry)
+            return (Error `No_directory_entry)
         end in
     inner [] (Dir (Name.list fs.root)) (Path.to_string_list path)
 
@@ -265,25 +265,25 @@ module Make (B: BLOCK_DEVICE
         corresponding to [path] or [None] if [path] cannot be found or if it
         is / and hasn't got a chain. *)
     let chain_of_file device fs path =
-      if Path.is_root path then return (Result.Ok None)
+      if Path.is_root path then return (Ok None)
       else
         let parent_path = Path.directory path in
         find device fs parent_path >>= fun entry ->
         match entry with
-        | Result.Ok (Dir ds) ->
+        | Ok (Dir ds) ->
           begin match Name.find (Path.filename path) ds with
             | None -> assert false
             | Some f ->
               let start_cluster = (snd f.Name.dos).Name.start_cluster in
-              return (Result.Ok (Some(Entry.Chain.follow fs.format fs.fat start_cluster)))
+              return (Ok (Some(Entry.Chain.follow fs.format fs.fat start_cluster)))
           end
-        | _ -> return (Result.Ok None)
+        | _ -> return (Ok None)
 
     (* return the storage location of the object identified by [path] *)
     let of_file device fs path =
       chain_of_file device fs path >>|= function
-      | None -> return (Result.Ok Rootdir)
-      | Some c -> return (Result.Ok (Chain c))
+      | None -> return (Ok Rootdir)
+      | Some c -> return (Ok (Chain c))
 
     let to_sectors fs = function
       | Chain clusters -> Entry.Chain.to_sectors fs.boot clusters
@@ -292,14 +292,14 @@ module Make (B: BLOCK_DEVICE
   end
 
   let (>>||=) m f = m >>= function
-    | Result.Error (`Msg m) -> Lwt.return (Result.Error (`Msg m))
-    | Result.Error `Is_a_directory -> Lwt.return (Result.Error `Is_a_directory)
-    | Result.Error `Not_a_directory -> Lwt.return (Result.Error `Not_a_directory)
-    | Result.Error `Directory_not_empty -> Lwt.return (Result.Error `Directory_not_empty)
-    | Result.Error `File_already_exists -> Lwt.return (Result.Error `File_already_exists)
-    | Result.Error `No_directory_entry -> Lwt.return (Result.Error `No_directory_entry)
-    | Result.Error `No_space -> Lwt.return (Result.Error `No_space)
-    | Result.Ok x -> f x
+    | Error (`Msg m) -> Lwt.return (Error (`Msg m))
+    | Error `Is_a_directory -> Lwt.return (Error `Is_a_directory)
+    | Error `Not_a_directory -> Lwt.return (Error `Not_a_directory)
+    | Error `Directory_not_empty -> Lwt.return (Error `Directory_not_empty)
+    | Error `File_already_exists -> Lwt.return (Error `File_already_exists)
+    | Error `No_directory_entry -> Lwt.return (Error `No_directory_entry)
+    | Error `No_space -> Lwt.return (Error `No_space)
+    | Ok x -> f x
 
   (** [write_to_location device fs path location update] applies [update]
       to the data stored in the object at [path] which is currently
@@ -320,12 +320,12 @@ module Make (B: BLOCK_DEVICE
       Int64.(to_int(div (add bytes_needed (sub bpc 1L)) bpc)) in
     ( match location, bytes_needed > 0L with
       | Location.Rootdir, true ->
-        return (Result.Error `No_space)
+        return (Error `No_space)
       | (Location.Rootdir | Location.Chain _), false ->
         let writes = Update.map updates sectors bps in
         iter_s (write_update device fs) writes >>|= fun () ->
         if location = Location.Rootdir then Update.apply fs.root update;
-        return (Result.Ok location)
+        return (Ok location)
       | Location.Chain cs, true ->
         let last = if cs = [] then None else Some (List.hd (List.rev cs)) in
         let new_clusters = Entry.Chain.extend fs.boot fs.format fs.fat last clusters_needed in
@@ -335,7 +335,7 @@ module Make (B: BLOCK_DEVICE
         iter_s (write_update device fs) data_writes >>|= fun () ->
         let fat_writes = Update.(map (split (from_cstruct 0L fs.fat) bps) fat_sectors bps) in
         iter_s (write_update device fs) fat_writes >>|= fun () ->
-        return (Result.Ok (Location.Chain (cs @ new_clusters))) )  >>||= fun location ->
+        return (Ok (Location.Chain (cs @ new_clusters))) )  >>||= fun location ->
     match location with
     | Location.Chain [] ->
       (* In the case of a previously empty file (location = Chain []), we
@@ -348,28 +348,28 @@ module Make (B: BLOCK_DEVICE
            let filename = Path.filename path in
            match Name.find filename ds with
            | None ->
-             return (Result.Error `No_directory_entry)
+             return (Error `No_directory_entry)
            | Some d ->
              let file_size = Name.file_size_of d in
              let new_file_size = max file_size (Int32.of_int (Int64.to_int (Update.total_length update))) in
              let updates = Name.modify bits filename new_file_size start_cluster in
-             return (Result.Ok updates)
+             return (Ok updates)
         )
-    | Location.Rootdir -> return (Result.Ok ()) (* the root directory itself has no attributes *)
+    | Location.Rootdir -> return (Ok ()) (* the root directory itself has no attributes *)
 
   and update_directory_containing device fs path f =
     let parent_path = Path.directory path in
     find device fs parent_path >>||= function
-      | File _ -> Lwt.return (Result.Error `Not_a_directory)
+      | File _ -> Lwt.return (Error `Not_a_directory)
       | Dir ds ->
         Location.of_file device fs parent_path >>|= fun location ->
         let sectors = Location.to_sectors fs location in
         read_sectors fs.boot.Boot_sector.bytes_per_sector device sectors >>= function
-        | Result.Error (`Msg m) -> return (Result.Error (`Msg m))
-        | Result.Ok contents ->
+        | Error (`Msg m) -> return (Error (`Msg m))
+        | Ok contents ->
         f contents ds >>||= fun updates ->
         iter_s (write_to_location device fs parent_path location) updates >>||= fun () ->
-        return (Result.Ok ())
+        return (Ok ())
 
   let create_common x path dir_entry =
     let path = Path.of_string path in
@@ -377,13 +377,13 @@ module Make (B: BLOCK_DEVICE
     update_directory_containing x.device x.fs path
       (fun contents ds ->
          if Name.find filename ds <> None
-         then return (Result.Error `File_already_exists)
-         else return (Result.Ok (Name.add contents dir_entry))
+         then return (Error `File_already_exists)
+         else return (Ok (Name.add contents dir_entry))
       )
 
   let wrap f : ('a, [> `Msg of string]) Result.result Lwt.t =
     catch f
-      (fun e -> return (Result.Error (`Msg (Printexc.to_string e))))
+      (fun e -> return (Error (`Msg (Printexc.to_string e))))
 
   (** [write x f offset buf] writes [buf] at [offset] in file [f] on
       filesystem [x] *)
@@ -415,31 +415,31 @@ module Make (B: BLOCK_DEVICE
            (* XXX check for nonempty *)
            (* XXX delete chain *)
            if Name.find filename ds = None
-           then Lwt.return (Result.Error `No_directory_entry)
-           else Lwt.return (Result.Ok (Name.remove contents filename))
+           then Lwt.return (Error `No_directory_entry)
+           else Lwt.return (Ok (Name.remove contents filename))
         ) in
     find x.device x.fs path >>= function
-    | Result.Error x -> return (Result.Error x)
-    | Result.Ok (File _) -> do_destroy ()
-    | Result.Ok (Dir []) -> do_destroy ()
-    | Result.Ok (Dir (_::_)) -> return (Result.Error `Directory_not_empty)
+    | Error x -> return (Error x)
+    | Ok (File _) -> do_destroy ()
+    | Ok (Dir []) -> do_destroy ()
+    | Ok (Dir (_::_)) -> return (Error `Directory_not_empty)
 
   let stat x path =
     let path = Path.of_string path in
     let entry_of_file f = f in
     find x.device x.fs path >>= function
-    | Result.Error x -> return (Result.Error x)
-    | Result.Ok (File f) ->
+    | Error x -> return (Error x)
+    | Ok (File f) ->
       let r = entry_of_file f in
-      return (Result.Ok {
+      return (Ok {
           filename = r.Name.utf_filename;
           read_only = (snd r.Name.dos).Name.read_only;
           directory = false;
           size = Int64.of_int32 ((snd r.Name.dos).Name.file_size);
         })
-    | Result.Ok (Dir ds) ->
+    | Ok (Dir ds) ->
       if Path.is_root path
-      then return (Result.Ok {
+      then return (Ok {
           filename = "/";
           read_only = false;
           directory = true;
@@ -449,14 +449,14 @@ module Make (B: BLOCK_DEVICE
         let filename = Path.filename path in
         let parent_path = Path.directory path in
         find x.device x.fs parent_path >>= function
-        | Result.Error x -> return (Result.Error x)
-        | Result.Ok (File _) -> assert false (* impossible by initial match *)
-        | Result.Ok (Dir ds) ->
+        | Error x -> return (Error x)
+        | Ok (File _) -> assert false (* impossible by initial match *)
+        | Ok (Dir ds) ->
           begin match Name.find filename ds with
             | None -> assert false (* impossible by initial match *)
             | Some f ->
               let r = entry_of_file f in
-              return (Result.Ok {
+              return (Ok {
                   filename = r.Name.utf_filename;
                   read_only = (snd r.Name.dos).Name.read_only;
                   directory = true;
@@ -466,16 +466,16 @@ module Make (B: BLOCK_DEVICE
 
   let size x path =
     stat x path >>= function
-    | Result.Ok s -> return (Result.Ok s.size)
-    | Result.Error _ as e -> return e
+    | Ok s -> return (Ok s.size)
+    | Error _ as e -> return e
 
   let listdir x path =
     let path = Path.of_string path in
     find x.device x.fs path >>= function
-    | Result.Ok (File _) -> return (Result.Error `Not_a_directory)
-    | Result.Ok (Dir ds) ->
-      return (Result.Ok (List.map Name.to_string ds))
-    | Result.Error x -> return (Result.Error x)
+    | Ok (File _) -> return (Error `Not_a_directory)
+    | Ok (Dir ds) ->
+      return (Ok (List.map Name.to_string ds))
+    | Error x -> return (Error x)
 
   let read_file device fs { Name.dos = _, ({ Name.file_size = file_size } as f) } the_start length =
     let bps = fs.boot.Boot_sector.bytes_per_sector in
@@ -483,21 +483,21 @@ module Make (B: BLOCK_DEVICE
     (* If the file is small, truncate length *)
     let length = max 0 (min length (Int32.to_int file_size - the_start)) in
     if length = 0
-    then return (Result.Ok [])
+    then return (Ok [])
     else
       let preceeding, requested, succeeding = SectorMap.byte_range bps the_start length in
       let to_read = SectorMap.compose requested the_file in
       read_sectors fs.boot.Boot_sector.bytes_per_sector device (SectorMap.to_list to_read) >>= function
-      | Result.Error e -> Lwt.return (Result.Error e)
-      | Result.Ok buffer ->
+      | Error e -> Lwt.return (Error e)
+      | Ok buffer ->
         let buffer = Cstruct.sub buffer preceeding (Cstruct.len buffer - preceeding - succeeding) in
-        return (Result.Ok [ buffer ])
+        return (Ok [ buffer ])
 
   let read x path the_start length =
     let path = Path.of_string path in
     find x.device x.fs path >>= function
-    | Result.Ok (Dir _) -> return (Result.Error `Is_a_directory)
-    | Result.Ok (File f) ->
+    | Ok (Dir _) -> return (Error `Is_a_directory)
+    | Ok (File f) ->
       read_file x.device x.fs f the_start length
-    | Result.Error x -> return (Result.Error x)
+    | Error x -> return (Error x)
 end
