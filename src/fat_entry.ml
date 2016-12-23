@@ -21,10 +21,10 @@ type t =
   | Bad
 
 let to_string = function
-  | Free -> "F"
-  | Used x -> "U"
-  | End -> "E"
-  | Bad -> "B"
+  | Free   -> "F"
+  | Used _ -> "U"
+  | End    -> "E"
+  | Bad    -> "B"
 
 type fat = Cstruct.t
 
@@ -58,8 +58,8 @@ let to_fat32 n fat x =
     | Free -> 0l | End -> 0x0fffffffl | Bad -> 0x0ffffff7l | Used x -> Int32.of_int x in
   Cstruct.LE.set_uint32 fat (4 * n) x'
 
-let of_fat12 n fat = failwith "Unimplemented"
-let to_fat12 n fat x = failwith "Unimplemented"
+let of_fat12 _n _fat = failwith "Unimplemented"
+let to_fat12 _n _fat _x = failwith "Unimplemented"
 
 let unmarshal format =
   let open Fat_format in
@@ -80,7 +80,7 @@ let cluster_0 format =
   Used ( (match format with
       | FAT16 -> 0xff00
       | FAT12 -> failwith "Unimplemented"
-      | FAT32 -> 0x0fffff00) lor Boot_sector.fat_id )
+      | FAT32 -> 0x0fffff00) lor Fat_boot_sector.fat_id )
 
 let cluster_1 format =
   let open Fat_format in
@@ -90,7 +90,7 @@ let cluster_1 format =
       | FAT32 -> 0x0fffffff )
 
 let make boot_sector format =
-  let n = Boot_sector.clusters boot_sector in
+  let n = Fat_boot_sector.clusters boot_sector in
   let open Fat_format in
   let bytes_per_cluster = match format with
     | FAT16 -> 2
@@ -109,7 +109,7 @@ let initial = 2 (* first valid entry *)
 (** [find_free_from boot format fat start] returns an unallocated cluster
     after [start] *)
 let find_free_from boot format fat start =
-  let n = Boot_sector.clusters boot in
+  let n = Fat_boot_sector.clusters boot in
   let rec inner i =
     if i = n then None
     else match unmarshal format i fat with
@@ -167,5 +167,5 @@ module Chain = struct
       to_allocate
 
   let to_sectors boot clusters =
-    List.concat (List.map (Boot_sector.sectors_of_cluster boot) clusters)
+    List.concat (List.map (Fat_boot_sector.sectors_of_cluster boot) clusters)
 end

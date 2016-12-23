@@ -16,7 +16,6 @@
 
 let project_url = "http://github.com/mirage/ocaml-fat"
 
-open Common
 open Cmdliner
 
 (* Help sections common to all commands *)

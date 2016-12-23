@@ -20,7 +20,6 @@ type t = {
   unbuffered: bool;
 }
 
-
 let make debug verb unbuffered =
   { debug; verb; unbuffered; }
 

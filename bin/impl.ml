@@ -13,33 +13,21 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
-open Lwt
-open Fat
-open S
+open Lwt.Infix
+open Result
 
-module Filesystem = Fs.Make(Block)(Io_page)
+module Filesystem = Fat_fs.Make(Block)(Io_page)
 open Common
 
 (* Default policy when we hit a block- or fs-level error which we don't
    have specific code to handle is to 'fail' the Lwt thread with
    the exception Failure "user-readable message". *)
 
-let (>>|=) m f = m >>= function
-  | Result.Error (`Msg m) -> fail (Failure m)
-  | Result.Error `Unimplemented -> fail (Failure "Block layer unimplemented")
-  | Result.Error `Disconnected -> fail (Failure "Block layer disconnected")
-  | Result.Error `Is_read_only -> fail (Failure "Block layer is read only")
-  | Result.Ok x -> f x
+let fail fmt = Fmt.kstrf Lwt.fail_with fmt
 
 let (>>*=) m f = m >>= function
-  | Result.Error (`Msg m) -> fail (Failure m)
-  | Result.Error `Directory_not_empty -> fail (Failure "Directory not empty")
-  | Result.Error `File_already_exists -> fail (Failure "File already exists")
-  | Result.Error `Is_a_directory -> fail (Failure "Is a directory")
-  | Result.Error `No_directory_entry -> fail (Failure "No directory entry")
-  | Result.Error `No_space -> fail (Failure "No space")
-  | Result.Error `Not_a_directory -> fail (Failure "Not a directory")
-  | Result.Ok x -> f x
+  | Error e -> fail "%a" Filesystem.pp_write_error (e :> Filesystem.write_error)
+  | Ok x    -> f x
 
 let rec iter_s f = function
   | [] -> Lwt.return (Result.Ok ())
@@ -54,7 +42,13 @@ let alloc bytes =
 
 let with_file flags filename f =
   Lwt_unix.openfile filename flags 0o0 >>= fun file ->
-  catch (fun () -> f file >>= fun x -> Lwt_unix.close file >>= fun () -> return x) (fun x -> Lwt_unix.close file >>= fun () -> fail x)
+  Lwt.catch (fun () ->
+      f file >>= fun x ->
+      Lwt_unix.close file >|= fun () ->
+      x
+    ) (fun x ->
+      Lwt_unix.close file >>= fun () ->
+      Lwt.fail x)
 
 let copy_file_in fs outside inside =
   Lwt_unix.lstat outside >>= fun stats ->
@@ -62,22 +56,27 @@ let copy_file_in fs outside inside =
   let block = alloc block_size in
   with_file [ Unix.O_RDONLY ] outside
     (fun ifd ->
-      let rec loop offset remaining =
-        if remaining = 0
-        then return ()
-        else
-          let this = min remaining block_size in
-          let frag = Cstruct.sub block 0 this in
-          Block.really_read ifd frag >>= fun () ->
-          Filesystem.write fs inside offset frag >>= function
-          | Result.Ok () -> loop (offset + this) (remaining - this)
-          | Result.Error e ->
-            let b = Buffer.create 20 in
-            let ppf = Format.formatter_of_buffer b in
-            let k ppf = Format.pp_print_flush ppf (); fail (Failure (Buffer.contents b)) in
-            Format.kfprintf k ppf "%a while copying %s -> %s, at offset %d with %d bytes remaining"
-              Mirage_pp.pp_fs_write_error e outside inside offset remaining in
-      loop 0 stats.Lwt_unix.st_size
+       let rec loop offset remaining =
+         if remaining = 0
+         then Lwt.return ()
+         else
+           let this = min remaining block_size in
+           let frag = Cstruct.sub block 0 this in
+           Block.really_read ifd frag >>= fun () ->
+           Filesystem.write fs inside offset frag >>= function
+           | Result.Ok () -> loop (offset + this) (remaining - this)
+           | Result.Error e ->
+             let b = Buffer.create 20 in
+             let ppf = Format.formatter_of_buffer b in
+             let k ppf =
+               Format.pp_print_flush ppf ();
+               fail "%s" (Buffer.contents b)
+             in
+             Fmt.kpf k ppf "%a while copying %s -> %s, at offset %d with %d \
+                            bytes remaining"
+               Filesystem.pp_write_error e outside inside offset remaining
+       in
+       loop 0 stats.Lwt_unix.st_size
     )
 
 let run t =
@@ -99,11 +98,13 @@ let create common filename size =
   in
   let t =
     ( if Sys.file_exists filename
-      then fail (Failure (Printf.sprintf "%s already exists" filename))
-      else return () ) >>= fun () ->
-    Lwt_unix.openfile filename [ Unix.O_CREAT; Unix.O_RDWR ] 0o0644 >>= fun fd ->
-
-    Lwt_unix.LargeFile.lseek fd Int64.(sub size 512L) Lwt_unix.SEEK_CUR >>= fun _ ->
+      then fail "%s already exists" filename
+      else Lwt.return () )
+    >>= fun () ->
+    Lwt_unix.openfile filename [ Unix.O_CREAT; Unix.O_RDWR ] 0o0644
+    >>= fun fd ->
+    Lwt_unix.LargeFile.lseek fd Int64.(sub size 512L) Lwt_unix.SEEK_CUR
+    >>= fun _ ->
     let message = "All work and no play makes Dave a dull boy.\n" in
     let sector = alloc 512 in
     for i = 0 to 511 do
@@ -111,11 +112,11 @@ let create common filename size =
     done;
     Block.really_write fd sector >>= fun () ->
     Lwt_unix.close fd >>= fun () ->
-
     Block.connect (buffered common filename) >>= fun device ->
     Filesystem.format device size >>*= fun _fs ->
     if common.verb then Printf.printf "Filesystem of size %Ld created\n%!" size;
-    return () in
+    Lwt.return ()
+  in
   run t
 
 let add common filename files =
@@ -136,12 +137,13 @@ let add common filename files =
         Filesystem.create fs inside_path >>*= fun _ ->
         Filesystem.listdir fs (Filename.dirname inside_path) >>*= fun xs ->
         if not(List.mem (Filename.basename inside_path) xs)
-        then fail (Failure (Printf.sprintf "listdir(%s) = [ %s ], doesn't include '%s'(%d)"
-                              (Filename.dirname inside_path)
-                              (String.concat ", " (List.map (fun x -> Printf.sprintf "'%s'(%d)" x (String.length x)) xs))
-                              (Filename.basename inside_path)
-                              (String.length (Filename.basename inside_path))
-                           ))
+        then fail "listdir(%s) = [ %s ], doesn't include '%s'(%d)"
+            (Filename.dirname inside_path)
+            (String.concat ", "
+               (List.map (fun x ->
+                    Printf.sprintf "'%s'(%d)" x (String.length x)) xs))
+            (Filename.basename inside_path)
+            (String.length (Filename.basename inside_path))
         else copy_file_in fs outside_path inside_path
       | Lwt_unix.S_DIR ->
         let children = Array.to_list (Sys.readdir outside_path) in
@@ -149,8 +151,10 @@ let add common filename files =
         Lwt_list.iter_s (copyin outside_path inside_path) children
       | _ ->
         Printf.fprintf stderr "Skipping file: %s\n%!" outside_path;
-        return () in
-    Lwt_list.iter_s (copyin "" "/") files in
+        Lwt.return ()
+    in
+    Lwt_list.iter_s (copyin "" "/") files
+  in
   run t
 
 let list common filename =
@@ -164,12 +168,15 @@ let list common filename =
            let path = Filename.concat curdir child in
            Filesystem.stat fs path >>*= fun stats ->
            Printf.printf "%s (%s)(%Ld bytes)\n" path
-             (if stats.Filesystem.directory then "DIR" else "FILE") stats.Filesystem.size;
+             (if stats.Filesystem.directory then "DIR" else "FILE")
+             stats.Filesystem.size;
            if stats.Filesystem.directory
            then loop path
-           else return ()
-        ) children in
-    loop "/" in
+           else Lwt.return ()
+        ) children
+    in
+    loop "/"
+  in
   run t
 
 let cat common filename path =
@@ -181,7 +188,9 @@ let cat common filename path =
       List.iter (fun x -> print_string (Cstruct.to_string x)) bufs;
       let copied = List.fold_left (+) 0 (List.map Cstruct.len bufs) in
       if copied < 1024
-      then return ()
-      else loop (offset + copied) in
-    loop 0 in
+      then Lwt.return ()
+      else loop (offset + copied)
+    in
+    loop 0
+  in
   run t

@@ -15,6 +15,7 @@
  *)
 
 open Lwt
+open Mirage_block
 
 type 'a io = 'a Lwt.t
 
@@ -22,14 +23,6 @@ type id = string
 
 (* NB not actually page-aligned *)
 type page_aligned_buffer = Cstruct.t
-
-let alloc = Cstruct.create
-
-type info = {
-  read_write: bool;
-  sector_size: int;
-  size_sectors: int64;
-}
 
 module Int64Map = Map.Make(Int64)
 
@@ -39,13 +32,12 @@ type t = {
   id: id;
 }
 
-type error = V1.Block.error
-
-let id t = t.id
-
+type error = Mirage_block.error
+type write_error = Mirage_block.write_error
+let pp_error = Mirage_block.pp_error
+let pp_write_error = Mirage_block.pp_write_error
 let devices = Hashtbl.create 1
-
-let get_info { info } = return info
+let get_info { info; _ } = return info
 
 let connect name =
   if Hashtbl.mem devices name

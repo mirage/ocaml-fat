@@ -25,13 +25,13 @@ val to_string: t -> string
 (** a whole File Allocation Table *)
 type fat = Cstruct.t
 
-val make: Boot_sector.t -> Fat_format.t -> Cstruct.t
+val make: Fat_boot_sector.t -> Fat_format.t -> Cstruct.t
 (** [make boot_sector format] creates an empty FAT given the parameters
     in [boot_sector] and the [format] *)
 
 (** [find_free_from boot format fat start] returns an unallocated cluster
     after [start] *)
-val find_free_from: Boot_sector.t -> Fat_format.t -> fat -> int -> int option
+val find_free_from: Fat_boot_sector.t -> Fat_format.t -> fat -> int -> int option
 
 (** first valid entry *)
 val initial: int
@@ -53,8 +53,8 @@ module Chain : sig
 
   (** [extend boot format fat last n] allocates [n] free clusters to extend
       the chain whose current end is [last] *)
-  val extend: Boot_sector.t -> Fat_format.t -> fat -> int option -> int -> t
+  val extend: Fat_boot_sector.t -> Fat_format.t -> fat -> int option -> int -> t
 
-  val to_sectors: Boot_sector.t -> t -> int list
+  val to_sectors: Fat_boot_sector.t -> t -> int list
   (** [to_sectors boot t] converts the chain [t] into a sequence of sectors *)
 end

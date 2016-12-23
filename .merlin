@@ -1,10 +1,8 @@
-S lib/*
-B _build/*
+S lib/
+S fat/
+S lib_test/
+B _build/**
 
-PKG lwt
-PKG mirage
-PKG mirage-types
-PKG mirage-types-lwt
-PKG mirage-runtime
-PKG cstruct
-PKG cstruct.ppx
+PKG lwt mirage mirage-types mirage-types-lwt mirage-runtime
+PKG mirage-block-lwt mirage-block-unix
+PKG cstruct cstruct.ppx oUnit astring
