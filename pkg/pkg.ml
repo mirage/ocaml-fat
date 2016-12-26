@@ -7,7 +7,7 @@ let opam =
   Pkg.opam_file ~lint_deps_excluding:(Some ["oUnit";"ounit";"ppx_tools"]) "opam"
 
 let () =
-  Pkg.describe ~opams:[opam] "fat" @@ fun c ->
+  Pkg.describe ~opams:[opam] "fat-filesystem" @@ fun c ->
   Ok [ Pkg.mllib ~api:["Fat"] "src/fat.mllib";
        Pkg.bin   ~dst:"fat" "bin/main";
        Pkg.test  "test/test";
