@@ -133,7 +133,7 @@ val next: Cstruct.t -> int option
 (** [add block t] return the update required to add [t] to the directory
     [block]. Note the update may be beyond the end of [block] indicating
     more space needs to be allocated. *)
-val add: Cstruct.t -> r -> Update.t list
+val add: Cstruct.t -> r -> Fat_update.t list
 
 val name_match: string -> r -> bool
 
@@ -143,9 +143,9 @@ val find: string -> r list -> r option
 
 (** [remove buf filename] erases any entries corresponding to [filename]
     from [buf] *)
-val remove: Cstruct.t -> string -> Update.t list
+val remove: Cstruct.t -> string -> Fat_update.t list
 
 (** [modify buf filename file_size start_cluster] changes any entry
     corresponding to [filename] in [buf] to have [file_size] and
     [start_cluster] *)
-val modify: Cstruct.t -> string -> int32 -> int -> Update.t list
+val modify: Cstruct.t -> string -> int32 -> int -> Fat_update.t list

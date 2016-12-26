@@ -30,7 +30,9 @@ type t = {
 
 let default_oem_name = "ocamlfat"
 
-[%%cstruct 
+[@@@ocaml.warning "-32"]
+
+[%%cstruct
 type t = {
   jump_instruction: uint8_t [@len 3];
   oem_name: uint8_t [@len 8];
@@ -50,6 +52,8 @@ type t = {
   signature: uint16_t  ;
 } [@@little_endian]
 ]
+
+[@@@ocaml.warning "+32"]
 
 let sizeof = sizeof_t
 
@@ -144,8 +148,6 @@ let format_of_clusters number_of_clusters =
   else if number_of_clusters < 65527 then Some FAT16
   else if number_of_clusters < 268435457 then Some FAT32
   else None
-
-exception Unknown_FAT_cluster_type
 
 let detect_format x = match format_of_clusters (clusters x) with
   | None -> Error "unknown cluster type"

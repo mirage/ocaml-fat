@@ -1,119 +1,123 @@
 (* This is a toplevel-like test program *)
-open Lwt
-open Fat
-open S
+open Lwt.Infix
+open Result
 
-module Test = Fs.Make(Block)(Io_page)
+module Test = Fat.FS(Block)(Io_page)
 
 let with_file flags filename f =
   Lwt_unix.openfile filename flags 0o0 >>= fun file ->
-  catch (fun () -> f file >>= fun x -> Lwt_unix.close file >>= fun () -> return x) (fun x -> Lwt_unix.close file >>= fun () -> fail x)
+  Lwt.catch (fun () ->
+      f file >>= fun x ->
+      Lwt_unix.close file >|= fun () ->
+      x
+    ) (fun x ->
+      Lwt_unix.close file >>= fun () ->
+      Lwt.fail x)
+
+let fail fmt = Fmt.kstrf Lwt.fail_with fmt
 
 let (>>|=) m f = m >>= function
-  | Result.Error (`Msg m) -> fail (Failure m)
-  | Result.Error `Unimplemented -> fail (Failure "Block layer unimplemented")
-  | Result.Error `Disconnected -> fail (Failure "Block layer disconnected")
-  | Result.Error `Is_read_only -> fail (Failure "Block layer is read only")
-  | Result.Ok x -> f x
+  | Error e -> fail "%a" Test.pp_error e
+  | Ok x    -> f x
 
 let (>>*=) m f = m >>= function
-  | Result.Error (`Msg m) -> fail (Failure m)
-  | Result.Error `Directory_not_empty -> fail (Failure "Directory not empty")
-  | Result.Error `File_already_exists -> fail (Failure "File already exists")
-  | Result.Error `Is_a_directory -> fail (Failure "Is a directory")
-  | Result.Error `No_directory_entry -> fail (Failure "No directory entry")
-  | Result.Error `No_space -> fail (Failure "No space")
-  | Result.Error `Not_a_directory -> fail (Failure "Not a directory")
-  | Result.Ok x -> f x
+  | Error e -> fail "%a" Test.pp_write_error (e :> Test.write_error)
+  | Ok x    -> f x
 
-let main filename create_size =
+let main filename _create_size =
   Block.connect filename >>= fun device ->
   Test.connect device >>= fun fs ->
-(*
-  ( match create_size with
-    | None -> Test.connect device
-    | Some x -> Test.make device (Int64.(mul (mul (of_int x) 1024L) 1024L)) ) >>= fun fs ->
-*)
   let open Test in
-  let open Fs in
-  (*
-  let handle_error f x = x >>= function
-    | `Error x -> Printf.printf "%s\n%!" (Error.to_string x); return ()
-    | `Ok x -> f x in
-*)
+  let module Path = Fat_path in
   let cwd = ref (Path.of_string "/") in
 
   let do_dir dir =
     let path = Path.cd !cwd dir in
     stat fs (Path.to_string path) >>*= function
-    | { directory = true } ->
+    | { directory = true; _ } ->
       let file = Path.to_string path in
       listdir fs file >>*= fun xs ->
       Printf.printf "Directory for A:%s\n\n" (Path.to_string path);
       List.iter (fun x -> Printf.printf "%s\n" x) xs;
       Printf.printf "%9d files\n%!" (List.length xs);
-      return ()
-    | { directory = false } ->
+      Lwt.return ()
+    | { directory = false; _ } ->
       Printf.printf "Not a directory.\n%!";
-      return () in
+      Lwt.return ()
+  in
+
   let do_type file =
     let path = Path.cd !cwd file in
     stat fs (Path.to_string path) >>*= function
-    | { directory = true } ->
+    | { directory = true; _ } ->
       Printf.printf "Is a directory.\n%!";
-      return ()
-    | { directory = false; size } ->
+      Lwt.return ()
+    | { directory = false; size; _ } ->
       let file_size = Int64.to_int size in
       read fs (Path.to_string path) 0 file_size >>*= fun datas ->
       let n = ref 0 in
       List.iter (fun buf ->
-        Printf.printf "%s" (Cstruct.to_string buf);
-        n := !n + (Cstruct.len buf)
-      ) datas;
+          Printf.printf "%s" (Cstruct.to_string buf);
+          n := !n + (Cstruct.len buf)
+        ) datas;
       Printf.printf "\n%!";
       if !n <> file_size
       then Printf.printf "Short read; expected %d got %d\n%!" file_size !n;
-      return () in
+      Lwt.return ()
+  in
+
   let do_del file =
     let path = Path.cd !cwd file in
-    destroy fs (Path.to_string path) >>*= fun () -> return () in
+    destroy fs (Path.to_string path) >>*= fun () -> Lwt.return ()
+  in
+
   let do_cd dir =
     let path = Path.cd !cwd dir in
     stat fs (Path.to_string path) >>*= function
-    | { directory = true } ->
+    | { directory = true; _ } ->
       cwd := path;
-      return ()
-    | { directory = false } ->
+      Lwt.return ()
+    | { directory = false; _ } ->
       Printf.printf "Not a directory.\n%!";
-      return () in
+      Lwt.return ()
+  in
+
   let do_touch x =
     let path = Path.cd !cwd x in
-    create fs (Path.to_string path) >>*= fun () -> return () in
+    create fs (Path.to_string path) >>*= fun () -> Lwt.return ()
+  in
+
   let do_mkdir x =
     let path = Path.cd !cwd x in
-    mkdir fs (Path.to_string path) >>*= fun () -> return () in
+    mkdir fs (Path.to_string path) >>*= fun () -> Lwt.return ()
+  in
+
   let do_rmdir x =
     let path = Path.cd !cwd x in
-    destroy fs (Path.to_string path) >>*= fun () -> return () in
+    destroy fs (Path.to_string path) >>*= fun () -> Lwt.return ()
+  in
+
   let copy_file_in outside inside =
     Lwt_unix.lstat (Path.to_string outside) >>= fun stats ->
     let block_size = 1024 * 1024 in
     let block = Cstruct.create block_size in
     with_file [ Unix.O_RDONLY ] (Path.to_string outside)
       (fun ifd ->
-        let rec loop offset remaining =
-          let this = min remaining block_size in
-          let frag = Cstruct.sub block 0 this in
-          Block.really_read ifd frag >>= fun () ->
-          write fs (Path.to_string inside) offset frag >>*= fun () ->
-          loop (offset + this) (remaining - this) in
-        loop 0 stats.Lwt_unix.st_size
-      ) in
+         let rec loop offset remaining =
+           let this = min remaining block_size in
+           let frag = Cstruct.sub block 0 this in
+           Block.really_read ifd frag >>= fun () ->
+           write fs (Path.to_string inside) offset frag >>*= fun () ->
+           loop (offset + this) (remaining - this) in
+         loop 0 stats.Lwt_unix.st_size
+      )
+  in
 
-  (** True if string 'x' starts with prefix 'prefix' *)
+  (* True if string 'x' starts with prefix 'prefix' *)
   let startswith prefix x =
     let x_l = String.length x and prefix_l = String.length prefix in
-    prefix_l <= x_l && String.sub x 0 prefix_l  = prefix in
+    prefix_l <= x_l && String.sub x 0 prefix_l  = prefix
+  in
 
   let parse_path x =
     (* return a pair of (outside filesystem bool, absolute path) *)
@@ -125,32 +129,36 @@ let main filename create_size =
       if is_absolute
       then Path.of_string x'
       else
-	let wd = if is_outside then Path.of_string (Unix.getcwd ()) else !cwd in
-	Path.cd wd x' in
-    is_outside, abspath in
+        let wd = if is_outside then Path.of_string (Unix.getcwd ()) else !cwd in
+        Path.cd wd x' in
+    is_outside, abspath
+  in
 
   let do_copy x y =
     let x_outside, x_path = parse_path x in
     let y_outside, y_path = parse_path y in
     match x_outside, y_outside with
-      | true, false ->
-	copy_file_in x_path y_path
-      | _, _ -> failwith "Unimplemented" in
+    | true, false ->
+      copy_file_in x_path y_path
+    | _, _ -> failwith "Unimplemented"
+  in
 
   let deltree x =
     let rec inner path =
       stat fs (Path.to_string path) >>*= function
-      | { directory = true } ->
+      | { directory = true; _ } ->
         let file = Path.to_string path in
         listdir fs file >>*= fun xs ->
         Lwt_list.iter_s
           (fun dir ->
-            inner (Path.cd path dir)
-	) xs >>= fun () ->
-        destroy fs (Path.to_string path) >>*= fun () -> return ()
-      | { directory = false } ->
-        destroy fs (Path.to_string path) >>*= fun () -> return () in
-    inner (snd(parse_path x)) in
+             inner (Path.cd path dir)
+          ) xs >>= fun () ->
+        destroy fs (Path.to_string path) >>*= fun () -> Lwt.return ()
+      | { directory = false; _ } ->
+        destroy fs (Path.to_string path) >>*= fun () -> Lwt.return ()
+    in
+    inner (snd(parse_path x))
+  in
 
   let space = Re_str.regexp_string " " in
   let rec loop () =
@@ -166,9 +174,10 @@ let main filename create_size =
     | [ "copy"; a; b ] -> do_copy a b >>= loop
     | [ "deltree"; a ] -> deltree a >>= loop
     | [ "del"; a ] -> do_del a >>= loop
-    | [ "exit" ] -> return () (* terminate loop *)
+    | [ "exit" ] -> Lwt.return () (* terminate loop *)
     | [] -> loop ()
-    | cmd :: _ -> Printf.printf "Unknown command: %s\n%!" cmd; loop () in
+    | cmd :: _ -> Printf.printf "Unknown command: %s\n%!" cmd; loop ()
+  in
   loop ()
 
 let () =
@@ -179,8 +188,9 @@ let () =
   let filename = ref "" in
   let create_size = ref None in
   Arg.parse
-    [ ("-fs", Arg.Set_string filename, "Filesystem to open");
-      ("-create", Arg.Int (fun x -> create_size := Some x), "Create using the given number of MiB")]
+    [ ("-fs"    , Arg.Set_string filename, "Filesystem to open");
+      ("-create", Arg.Int (fun x -> create_size := Some x),
+       "Create using the given number of MiB")]
     (fun x -> Printf.fprintf stderr "Skipping unknown argument: %s\n" x)
     "Examine the contents of a fat filesystem";
   if !filename = "" then usage ();

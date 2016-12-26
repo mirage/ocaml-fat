@@ -1,21 +1,21 @@
 opam-version: "1.2"
-authors: ["Dave Scott" "Anil Madhavapeddy"]
-maintainer: "dave@recoil.org"
+authors:      ["Dave Scott" "Anil Madhavapeddy"]
+maintainer:   "dave@recoil.org"
 homepage:     "https://github.com/mirage/ocaml-fat"
 bug-reports:  "https://github.com/mirage/ocaml-fat/issues"
 dev-repo:     "https://github.com/mirage/ocaml-fat.git"
-build: [
-  ["./configure" "--bindir" "%{bin}%"]
-  [make]
+doc:          "https://mirage.github.io/ocaml-fat/"
+
+build: ["ocaml" "pkg/pkg.ml" "build" "--pinned" "%{pinned}%" "--tests" "false"]
+build-test: [
+  ["ocaml" "pkg/pkg.ml" "build" "--pinned" "%{pinned}%" "--tests" "true"]
+  ["ocaml" "pkg/pkg.ml" "test"]
 ]
-install: [ [make "install"] ]
-remove: [
-  ["./configure" "--bindir" "%{bin}%"]
-  [make "uninstall"]
-]
+
 depends: [
-  "ocamlfind" {build}
+  "ocamlfind"  {build}
   "ocamlbuild" {build}
+  "topkg"      {build}
   "cstruct" {>= "2.0.0"}
   "ppx_tools"
   "result"
@@ -24,10 +24,12 @@ depends: [
   "mirage-types" {>= "3.0.0"}
   "mirage-types-lwt" {>= "3.0.0"}
   "mirage-block-unix" {>= "1.2.0"}
+  "mirage-runtime"
   "io-page" {>= "1.6.1"}
   "re"
   "ounit"
   "cmdliner"
+  "astring"
 ]
 tags: [
   "org:mirage"

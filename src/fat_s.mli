@@ -14,9 +14,9 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-module Make (B: V1_LWT.BLOCK)(M: S.IO_PAGE) : sig
-  include V1_LWT.FS
-
-  val connect : B.t -> t io
-  val format : B.t -> int64 -> (t, [> `Msg of string]) Result.result io
+module type IO_PAGE = sig
+  val get_buf : ?n:int -> unit -> Cstruct.t
+  (** [get_buf ~n ()] allocates and returns a memory block of [n] pages,
+      represented as a {!Cstruct.t}. If there is not enough memory,
+      an [Out_of_memory] exception is raised. *)
 end

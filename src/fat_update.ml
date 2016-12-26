@@ -90,5 +90,7 @@ let split x sector_size =
     location of physical sectors on disk) and returns a sequence of physical
     sector updates. *)
 let map xs sectors sector_size =
-  let m = SectorMap.make sectors in
-  List.map (fun x -> { x with offset = SectorMap.transform_offset m sector_size x.offset}) xs
+  let m = Fat_sector_map.make sectors in
+  List.map (fun x ->
+      { x with offset = Fat_sector_map.transform_offset m sector_size x.offset}
+    ) xs

@@ -86,7 +86,8 @@ let remove_padding x =
   let rec inner = function
     | -1 -> x
     | n when x.[n] = ' ' -> inner (n-1)
-    | n -> String.sub x 0 (n + 1) in
+    | n -> String.sub x 0 (n + 1)
+  in
   inner (String.length x - 1)
 
 let file_size_of r = (snd r.dos).file_size
@@ -120,7 +121,10 @@ let legal_dos_string x =
 let dot = Re_str.regexp_string "."
 let is_legal_dos_name filename = match Re_str.split dot filename with
   | [ one ] -> String.length one <= 8 && (legal_dos_string one)
-  | [ one; two ] -> String.length one <= 8 && (String.length two <= 3) && (legal_dos_string one) && (legal_dos_string two)
+  | [ one; two ] -> String.length one <= 8
+                    && (String.length two <= 3)
+                    && (legal_dos_string one)
+                    && (legal_dos_string two)
   | _ -> false
 
 let add_padding p n x =
@@ -130,6 +134,8 @@ let add_padding p n x =
     String.blit x 0 y 0 (String.length x);
     y
 
+let uppercase = Astring.String.Ascii.uppercase
+
 let dos_name_of_filename filename =
   if is_legal_dos_name filename
   then match Re_str.split dot filename with
@@ -137,9 +143,9 @@ let dos_name_of_filename filename =
     | [ one; two ] -> add_padding ' ' 8 one, add_padding ' ' 3 two
     | _ -> assert false (* implied by is_legal_dos_name *)
   else
-    let all = String.uppercase (Digest.to_hex (Digest.string filename)) in
+    let all  = uppercase (Digest.to_hex (Digest.string filename)) in
     let base = String.sub all 0 8 in
-    let ext = String.sub all 8 3 in
+    let ext  = String.sub all 8 3 in
     base, ext
 
 let ascii_to_utf16 x =
@@ -149,18 +155,18 @@ let ascii_to_utf16 x =
   let total = max (l + 1) padto in (* NULL *)
   let results = String.make (total * 2) (char_of_int 0xff) in
   for i = 0 to l - 1 do
-    results.[i*2] <- x.[i];
-    results.[i*2+1] <- char_of_int 0;
+    Bytes.set results (i*2) x.[i];
+    Bytes.set results (i*2+1) (char_of_int 0);
   done;
-  results.[l*2] <- char_of_int 0;
-  results.[l*2+1] <- char_of_int 0;
+  Bytes.set results (l*2) (char_of_int 0);
+  Bytes.set results (l*2+1) (char_of_int 0);
   results
 
 (* XXX: this code is bad and I should feel bad. Replace with 'uutf' *)
 let utf16_to_ascii s =
   let result = String.make (String.length s / 2) 'X' in
   for i = 0 to String.length result - 1 do
-    result.[i] <- s.[i * 2];
+    Bytes.set result i s.[i * 2];
   done;
   result
 
@@ -276,6 +282,8 @@ let int_of_date x =
   let y = (x.year - 1980) lsl 9 in
   d lor m lor y
 
+[@@@ocaml.warning "-32"]
+
 [%%cstruct
 type lfn = {
   seq: uint8_t ;
@@ -306,6 +314,8 @@ type name = {
   file_size: uint32_t ;
 } [@@little_endian]
 ]
+
+[@@@ocaml.warning "+32"]
 
 let sizeof = sizeof_name
 let _ = assert(sizeof_lfn = sizeof_name)
@@ -350,7 +360,7 @@ let unmarshal buf =
     then End
     else
       let deleted = x = 0xe5 in
-      filename.[0] <- char_of_int (if x = 0x05 then 0xe5 else x);
+      Bytes.set filename 0 @@ char_of_int (if x = 0x05 then 0xe5 else x);
       Dos {
         filename = remove_padding filename;
         ext = remove_padding ext;
@@ -393,8 +403,8 @@ let marshal (buf: Cstruct.t) t =
   | Dos x ->
     let filename = add_padding ' ' 8 x.filename in
     let y = int_of_char filename.[0] in
-    filename.[0] <- char_of_int (if y = 0xe5 then 0x05 else y);
-    if x.deleted then filename.[0] <- char_of_int 0xe5;
+    Bytes.set filename 0 @@ char_of_int (if y = 0xe5 then 0x05 else y);
+    if x.deleted then Bytes.set filename 0 @@ char_of_int 0xe5;
     let ext = add_padding ' ' 3 x.ext in
     let create_time_ms = x.create.ms in
     let create_time = int_of_time x.create in
@@ -441,8 +451,8 @@ let fold f initial bits =
     | [] -> acc
     | (offset, b) :: bs ->
       begin match unmarshal b with
-        | Dos { deleted = true }
-        | Lfn { lfn_deleted = true } -> inner lfns acc bs
+        | Dos { deleted = true; _ }
+        | Lfn { lfn_deleted = true; _ } -> inner lfns acc bs
         | Lfn lfn -> inner ((offset, lfn) :: lfns) acc bs
         | Dos d ->
           let expected_checksum = compute_checksum d in
@@ -488,7 +498,7 @@ let add block r =
   let buf = Cstruct.create (List.length dir_entries * sizeof) in
   List.iter (fun ((_, buf), entry) -> marshal buf entry)
     (List.combine (blocks buf) dir_entries);
-  [ Update.from_cstruct (Int64.of_int next_byte) buf ]
+  [ Fat_update.from_cstruct (Int64.of_int next_byte) buf ]
 
 let name_match name x =
   let utf_name = ascii_to_utf16 name in
@@ -520,12 +530,12 @@ let remove block filename =
           | Dos dos -> Dos { dos with deleted = true }
           | End -> assert false
         end;
-        Update.from_cstruct (Int64.of_int offset) delta :: acc
+        Fat_update.from_cstruct (Int64.of_int offset) delta :: acc
       ) [] offsets)
   | None -> [] (* no updates implies nothing to remove *)
 
 let modify block filename file_size start_cluster =
-  fold (fun acc offset x ->
+  fold (fun acc _offset x ->
       if not(name_match filename x)
       then acc
       else
@@ -533,5 +543,5 @@ let modify block filename file_size start_cluster =
         let dos' = { dos with file_size = file_size; start_cluster = start_cluster } in
         let b = Cstruct.create sizeof in
         marshal b (Dos dos');
-        Update.from_cstruct (Int64.of_int offset) b :: acc
+        Fat_update.from_cstruct (Int64.of_int offset) b :: acc
     ) [] block

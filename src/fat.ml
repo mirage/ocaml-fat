@@ -14,17 +14,13 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-module type BLOCK_DEVICE = V1.BLOCK
-  with type page_aligned_buffer = Cstruct.t
-   and type 'a io = 'a Lwt.t
+open Lwt.Infix
 
-module type IO_PAGE = sig
-  val get_buf : ?n:int -> unit -> Cstruct.t
-  (** [get_buf ~n ()] allocates and returns a memory block of [n] pages,
-      represented as a {!Cstruct.t}. If there is not enough memory,
-      an [Out_of_memory] exception is raised. *)
+module type IO_PAGE = Fat_s.IO_PAGE
+module FS = Fat_fs.Make
+module MemFS (IO: IO_PAGE) = struct
+  include FS(Fat_memoryIO)(IO)
+  let connect n = Fat_memoryIO.connect n >>= connect
+  let format n size = Fat_memoryIO.connect n >>= fun t -> format t size
 end
-
-module type FS = V1.FS
-with type page_aligned_buffer = Cstruct.t
-and type 'a io = 'a Lwt.t
+module KV_RO = Fat_KV_RO.Make

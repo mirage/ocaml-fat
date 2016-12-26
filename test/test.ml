@@ -15,28 +15,16 @@
  *)
 
 open OUnit
-open Lwt
-open Fat
-open S
+open Lwt.Infix
 open Block
 open Result
+module MemFS = Fat.MemFS(Io_page)
 
-let (>>|=) m f = m >>= function
-  | Result.Error (`Msg m) -> fail (Failure m)
-  | Result.Error `Unimplemented -> fail (Failure "Block layer unimplemented")
-  | Result.Error `Disconnected -> fail (Failure "Block layer disconnected")
-  | Result.Error `Is_read_only -> fail (Failure "Block layer is read only")
-  | Result.Ok x -> f x
+let fail fmt = Fmt.kstrf Lwt.fail_with fmt
 
 let (>>*=) m f = m >>= function
-  | Result.Error (`Msg m) -> fail (Failure m)
-  | Result.Error `Directory_not_empty -> fail (Failure "Directory not empty")
-  | Result.Error `File_already_exists -> fail (Failure "File already exists")
-  | Result.Error `Is_a_directory -> fail (Failure "Is a directory")
-  | Result.Error `No_directory_entry -> fail (Failure "No directory entry")
-  | Result.Error `No_space -> fail (Failure "No space")
-  | Result.Error `Not_a_directory -> fail (Failure "Not a directory")
-  | Result.Ok x -> f x
+  | Error e -> fail "%a" MemFS.pp_write_error (e :> MemFS.write_error)
+  | Ok x    -> f x
 
 let alloc bytes =
   let pages = Io_page.(to_cstruct (get ((bytes + 4095) / 4096))) in
@@ -46,19 +34,19 @@ let read_sector filename =
   Lwt_unix.openfile filename [ Lwt_unix.O_RDONLY ] 0o0 >>= fun fd ->
   let buf = alloc 512 in
   really_read fd buf >>= fun () ->
-  Lwt_unix.close fd >>= fun () ->
-  return buf
+  Lwt_unix.close fd >|= fun () ->
+  buf
 
 let read_whole_file filename =
   Lwt_unix.openfile filename [ Lwt_unix.O_RDONLY ] 0o0 >>= fun fd ->
   let size = (Unix.stat filename).Unix.st_size in
   let buf = alloc size in
   really_read fd buf >>= fun () ->
-  Lwt_unix.close fd >>= fun () ->
-  return buf
+  Lwt_unix.close fd >|= fun () ->
+  buf
 
 let checksum_test () =
-  let open Name in
+  let open Fat_name in
   let checksum_tests = [
     make "MAKEFILE", 193;
     make "FAT.ML", 223;
@@ -72,76 +60,86 @@ let checksum_test () =
 let print_int_list xs = "[" ^ ( String.concat "; " (List.map string_of_int xs) ) ^ "]"
 
 let test_root_list () =
+  let open Fat_name in
   let t =
-    read_whole_file "lib_test/root.dat" >>= fun bytes ->
-    let all = Name.list bytes in
+    read_whole_file "test/root.dat" >>= fun bytes ->
+    let all = list bytes in
     assert_equal ~printer:string_of_int 5 (List.length all);
     let x = List.nth all 1 in
-    let utf_filename = "l\000o\000w\000e\000r\000.\000t\000x\000t\000\000\000\255\255\255\255\255\255" in
-    assert_equal ~printer:(fun x -> x) utf_filename x.Name.utf_filename;
-    let a, b = x.Name.dos in
+    let utf_filename =
+      "l\000o\000w\000e\000r\000.\000t\000x\000t\000\000\000\255\255\255\255\255\255"
+    in
+    assert_equal ~printer:(fun x -> x) utf_filename x.utf_filename;
+    let a, b = x.dos in
     assert_equal ~printer:string_of_int 192 a;
-    assert_equal ~printer:(fun x -> x) "LOWER" b.Name.filename;
-    assert_equal ~printer:(fun x -> x) "TXT" b.Name.ext;
-    assert_equal ~printer:string_of_bool false b.Name.deleted;
-    assert_equal ~printer:string_of_bool false b.Name.read_only;
-    assert_equal ~printer:string_of_bool false b.Name.hidden;
-    assert_equal ~printer:string_of_bool false b.Name.system;
-    assert_equal ~printer:string_of_bool false b.Name.volume;
-    assert_equal ~printer:string_of_bool false b.Name.subdir;
-    assert_equal ~printer:string_of_bool true b.Name.archive;
-    assert_equal ~printer:string_of_int 0 b.Name.start_cluster;
-    assert_equal ~printer:Int32.to_string 0l b.Name.file_size;
-    assert_equal ~printer:string_of_int 2013 b.Name.create.Name.year;
-    assert_equal ~printer:string_of_int 11 b.Name.create.Name.month;
-    assert_equal ~printer:string_of_int 2 b.Name.create.Name.day;
-    assert_equal ~printer:string_of_int 16 b.Name.create.Name.hours;
-    assert_equal ~printer:string_of_int 58 b.Name.create.Name.mins;
-    assert_equal ~printer:string_of_int 52 b.Name.create.Name.secs;
-    assert_equal ~printer:string_of_int 100 b.Name.create.Name.ms;
-    let lfns = x.Name.lfns in
+    assert_equal ~printer:(fun x -> x) "LOWER" b.filename;
+    assert_equal ~printer:(fun x -> x) "TXT" b.ext;
+    assert_equal ~printer:string_of_bool false b.deleted;
+    assert_equal ~printer:string_of_bool false b.read_only;
+    assert_equal ~printer:string_of_bool false b.hidden;
+    assert_equal ~printer:string_of_bool false b.system;
+    assert_equal ~printer:string_of_bool false b.volume;
+    assert_equal ~printer:string_of_bool false b.subdir;
+    assert_equal ~printer:string_of_bool true b.archive;
+    assert_equal ~printer:string_of_int 0 b.start_cluster;
+    assert_equal ~printer:Int32.to_string 0l b.file_size;
+    assert_equal ~printer:string_of_int 2013 b.create.year;
+    assert_equal ~printer:string_of_int 11 b.create.month;
+    assert_equal ~printer:string_of_int 2 b.create.day;
+    assert_equal ~printer:string_of_int 16 b.create.hours;
+    assert_equal ~printer:string_of_int 58 b.create.mins;
+    assert_equal ~printer:string_of_int 52 b.create.secs;
+    assert_equal ~printer:string_of_int 100 b.create.ms;
+    let lfns = x.lfns in
     assert_equal ~printer:string_of_int 1 (List.length lfns);
     let a, b = List.hd lfns in
     assert_equal ~printer:string_of_int 160 a;
-    assert_equal ~printer:string_of_bool false b.Name.lfn_deleted;
-    assert_equal ~printer:string_of_bool true b.Name.lfn_last;
-    assert_equal ~printer:string_of_int 1 b.Name.lfn_seq;
-    assert_equal ~printer:string_of_int 252 b.Name.lfn_checksum;
-    assert_equal ~printer:(fun x -> x) utf_filename b.Name.lfn_utf16_name;
-    return () in
+    assert_equal ~printer:string_of_bool false b.lfn_deleted;
+    assert_equal ~printer:string_of_bool true b.lfn_last;
+    assert_equal ~printer:string_of_int 1 b.lfn_seq;
+    assert_equal ~printer:string_of_int 252 b.lfn_checksum;
+    assert_equal ~printer:(fun x -> x) utf_filename b.lfn_utf16_name;
+    Lwt.return ()
+  in
   Lwt_main.run t
 
 let test_chains () =
   let t =
-    let open Boot_sector in
-    read_sector "lib_test/bootsector.dat" >>= fun bytes ->
+    let open Fat_boot_sector in
+    read_sector "test/bootsector.dat" >>= fun bytes ->
     let boot = match unmarshal bytes with
       | Error x -> failwith x
       | Ok x -> x in
     let printer = function
       | Error e -> e
       | Ok x -> Fat_format.to_string x in
-    assert_equal ~printer (Ok Fat_format.FAT16) (Boot_sector.detect_format boot);
-    read_whole_file "lib_test/root.dat" >>= fun bytes ->
-    let all = Name.list bytes in
-    read_whole_file "lib_test/fat.dat" >>= fun fat ->
+    assert_equal ~printer
+      (Ok Fat_format.FAT16) (Fat_boot_sector.detect_format boot);
+    read_whole_file "test/root.dat" >>= fun bytes ->
+    let open Fat_name in
+    let all = list bytes in
+    read_whole_file "test/fat.dat" >>= fun fat ->
 
     let expected = [0; 0; 0; 2235; 3] in
-    let actual = List.map (fun x -> (snd (x.Name.dos)).Name.start_cluster) all in
+    let actual = List.map (fun x -> (snd (x.dos)).start_cluster) all in
     assert_equal ~printer:print_int_list expected actual;
-    assert_equal ~printer:print_int_list [] (Entry.Chain.follow Fat_format.FAT16 fat 0);
+    assert_equal ~printer:print_int_list []
+      (Fat_entry.Chain.follow Fat_format.FAT16 fat 0);
 
-    assert_equal ~printer:print_int_list [2235] (Entry.Chain.follow Fat_format.FAT16 fat 2235);
+    assert_equal ~printer:print_int_list [2235]
+      (Fat_entry.Chain.follow Fat_format.FAT16 fat 2235);
     let rec ints last x = if x = last then [x] else x :: (ints last (x + 1)) in
     let expected = ints 2234 3 in
-    assert_equal ~printer:print_int_list expected (Entry.Chain.follow Fat_format.FAT16 fat 3);
-    return () in
+    assert_equal ~printer:print_int_list expected
+      (Fat_entry.Chain.follow Fat_format.FAT16 fat 3);
+    Lwt.return ()
+  in
   Lwt_main.run t
 
 let test_parse_boot_sector () =
   let t =
-    let open Boot_sector in
-    read_sector "lib_test/bootsector.dat" >>= fun bytes ->
+    let open Fat_boot_sector in
+    read_sector "test/bootsector.dat" >>= fun bytes ->
     let x = match unmarshal bytes with
       | Error x -> failwith x
       | Ok x -> x in
@@ -155,10 +153,18 @@ let test_parse_boot_sector () =
       assert_equal ~printer:Int32.to_string 30720l x.total_sectors;
       assert_equal ~printer:string_of_int 32 x.sectors_per_fat;
       assert_equal ~printer:Int32.to_string 0l x.hidden_preceeding_sectors;
-      let sectors_of_fat = [4; 5; 6; 7; 8; 9; 10; 11; 12; 13; 14; 15; 16; 17; 18; 19; 20; 21; 22; 23; 24; 25; 26; 27; 28; 29; 30; 31; 32; 33; 34; 35] in
-      let sectors_of_root_dir = [68; 69; 70; 71; 72; 73; 74; 75; 76; 77; 78; 79; 80; 81; 82; 83; 84; 85; 86; 87; 88; 89; 90; 91; 92; 93; 94; 95; 96; 97; 98; 99] in
-      assert_equal ~printer:print_int_list sectors_of_fat (Boot_sector.sectors_of_fat x);
-      assert_equal ~printer:print_int_list sectors_of_root_dir (Boot_sector.sectors_of_root_dir x) in
+      let sectors_of_fat =
+        [4; 5; 6; 7; 8; 9; 10; 11; 12; 13; 14; 15; 16; 17; 18; 19; 20; 21;
+         22; 23; 24; 25; 26; 27; 28; 29; 30; 31; 32; 33; 34; 35]
+      in
+      let sectors_of_root_dir =
+        [68; 69; 70; 71; 72; 73; 74; 75; 76; 77; 78; 79; 80; 81; 82; 83; 84;
+         85; 86; 87; 88; 89; 90; 91; 92; 93; 94; 95; 96; 97; 98; 99]
+      in
+      assert_equal ~printer:print_int_list sectors_of_fat
+        (Fat_boot_sector.sectors_of_fat x);
+      assert_equal ~printer:print_int_list sectors_of_root_dir
+        (Fat_boot_sector.sectors_of_root_dir x) in
     check x;
     let buf = alloc sizeof in
     marshal buf x;
@@ -166,10 +172,9 @@ let test_parse_boot_sector () =
       | Error x -> failwith x
       | Ok x -> x in
     check x;
-    return () in
+    Lwt.return ()
+  in
   Lwt_main.run t
-
-module MemFS = Fs.Make(MemoryIO)(Io_page)
 
 let kib = 1024L
 let mib = Int64.mul kib 1024L
@@ -180,25 +185,24 @@ module FsError = struct
     | `Error error ->
       let b = Buffer.create 20 in
       let ppf = Format.formatter_of_buffer b in
-      let k ppf = Format.pp_print_flush ppf (); fail (Failure (Buffer.contents b)) in
-      Format.kfprintf k ppf "%a" Mirage_pp.pp_fs_write_error error
+      let k ppf = Format.pp_print_flush ppf (); fail "%s" (Buffer.contents b) in
+      Fmt.kpf k ppf "%a" Mirage_pp.pp_fs_write_error error
 end
 
 let test_create () =
   let t =
-    MemoryIO.connect "" >>= fun device ->
-    let open FsError in
-    MemFS.format device (Int64.mul 16L mib) >>|= fun fs ->
+    MemFS.format "" (Int64.mul 16L mib) >>*= fun fs ->
     let filename = "HELLO.TXT" in
     MemFS.create fs filename >>*= fun () ->
     MemFS.stat fs "/" >>*= function
-    | { MemFS.directory = true } ->
+    | { MemFS.directory = true; _ } ->
       let file = "/" in
       MemFS.listdir fs file >>*= fun names ->
       assert_equal ~printer:(String.concat "; ") [ filename ] names;
-      return ()
-    | { MemFS.directory = false } ->
-      fail (Failure "Not a directory") in
+      Lwt.return ()
+    | { MemFS.directory = false; _ } ->
+      fail "Not a directory"
+  in
   Lwt_main.run t
 
 exception Cstruct_differ
@@ -247,44 +251,46 @@ let interesting_filenames = [
 
 let test_listdir () =
   let t =
-    MemoryIO.connect "" >>= fun device ->
-    let open FsError in
-    MemFS.format device (Int64.mul 16L mib) >>|= fun fs ->
+    MemFS.format "" (Int64.mul 16L mib) >>*= fun fs ->
     let filename = "hello" in
     MemFS.create fs filename >>*= fun () ->
     MemFS.listdir fs "/" >>*= fun all ->
     if List.mem filename all
-    then return ()
-    else fail (Failure (Printf.sprintf "Looking for '%s' in directory, contents [ %s ]" filename
-                          (String.concat ", " (List.map (fun x -> Printf.sprintf "'%s'(%d)" x (String.length x)) all)))) in
+    then Lwt.return ()
+    else fail "Looking for '%s' in directory, contents [ %s ]" filename
+        (String.concat ", " (List.map (fun x ->
+             Printf.sprintf "'%s'(%d)" x (String.length x)) all))
+  in
   Lwt_main.run t
 
 let test_listdir_subdir () =
   let t =
-    MemoryIO.connect "" >>= fun device ->
-    MemFS.format device (Int64.mul 16L mib) >>|= fun fs ->
+    MemFS.format "" (Int64.mul 16L mib) >>*= fun fs ->
     let dirname = "hello" in
     MemFS.mkdir fs dirname >>*= fun () ->
     MemFS.listdir fs "/" >>*= fun all ->
     ( if List.mem dirname all
-      then return ()
-      else fail (Failure (Printf.sprintf "Looking for '%s' in / directory, contents [ %s ]" dirname
-                                             (String.concat ", " (List.map (fun x -> Printf.sprintf "'%s'(%d)" x (String.length x)) all)))) ) >>= fun () ->
+      then Lwt.return ()
+      else fail "Looking for '%s' in / directory, contents [ %s ]" dirname
+          (String.concat ", " (List.map (fun x ->
+               Printf.sprintf "'%s'(%d)" x (String.length x)) all)))
+    >>= fun () ->
     let filename = "there" in
     let path = Filename.concat dirname filename in
     MemFS.create fs path >>*= fun () ->
     MemFS.listdir fs dirname >>*= fun all ->
     ( if List.mem filename all
-      then return ()
-      else fail (Failure (Printf.sprintf "Looking for '%s' in %s directory, contents [ %s ]" filename dirname
-                            (String.concat ", " (List.map (fun x -> Printf.sprintf "'%s'(%d)" x (String.length x)) all)))) )
+      then Lwt.return ()
+      else fail "Looking for '%s' in %s directory, contents [ %s ]"
+          filename dirname
+          (String.concat ", " (List.map (fun x ->
+               Printf.sprintf "'%s'(%d)" x (String.length x)) all)))
   in
   Lwt_main.run t
 
 let test_read () =
   let t =
-    MemoryIO.connect "" >>= fun device ->
-    MemFS.format device (Int64.mul 16L mib) >>|= fun fs ->
+    MemFS.format "" (Int64.mul 16L mib) >>*= fun fs ->
     let filename = "hello" in
     let length = 512 in
     MemFS.create fs filename >>*= fun () ->
@@ -301,57 +307,62 @@ let test_read () =
     assert_equal ~printer:string_of_int (length - 2) (count buffers);
     MemFS.read fs filename length length >>*= fun buffers ->
     assert_equal ~printer:string_of_int 0 (count buffers);
-    return () in
+    Lwt.return ()
+  in
   Lwt_main.run t
 
 (* Very simple, easy sector-aligned writes. Tests that
    read(write(data)) = data; and that files are extended properly *)
-let test_write ((filename: string), (offset, length)) () =
+let test_write ((filename: string), (_offset, length)) () =
   let t =
-    MemoryIO.connect "" >>= fun device ->
-    MemFS.format device (Int64.mul 16L mib) >>|= fun fs ->
+    MemFS.format "" (Int64.mul 16L mib) >>*= fun fs ->
     let open Lwt in
-    ( match List.rev (Path.to_string_list (Path.of_string filename)) with
+    ( match List.rev (Fat_path.to_string_list (Fat_path.of_string filename)) with
       | [] -> assert false
       | [ _ ] -> return ()
       | _ :: dir ->
         List.fold_left (fun current dir ->
             current >>= fun current ->
-            MemFS.mkdir fs (Path.(to_string (of_string_list (current @ [dir])))) >>*= fun () ->
+            MemFS.mkdir fs (Fat_path.(to_string (of_string_list (current @ [dir]))))
+            >>*= fun () ->
             return (current @ [dir])
           ) (return []) (List.rev dir) >>= fun _ ->
-        return () ) >>= fun () ->
+        return () )
+    >>= fun () ->
     MemFS.create fs filename >>*= fun () ->
     let buffer = make_pattern "basic writing test " length in
     MemFS.write fs filename 0 buffer >>*= fun () ->
     MemFS.read fs filename 0 512 >>*= fun buffers ->
-    let to_string x = Printf.sprintf "\"%s\"(%d)" (Cstruct.to_string x) (Cstruct.len x) in
+    let to_string x =
+      Printf.sprintf "\"%s\"(%d)" (Cstruct.to_string x) (Cstruct.len x)
+    in
     assert_equal ~printer:to_string ~cmp:cstruct_equal buffer (List.hd buffers);
-    return () in
+    return ()
+  in
   Lwt_main.run t
 
 let test_destroy () =
   let t =
-    MemoryIO.connect "" >>= fun device ->
-    MemFS.format device 0x100000L >>|= fun fs ->
+    MemFS.format "" 0x100000L >>*= fun fs ->
     MemFS.create fs "/data" >>*= fun () ->
     MemFS.destroy fs "/data" >>*= fun () ->
     MemFS.listdir fs "/" >>*= function
-    | [] -> return ()
+    | []    -> Lwt.return ()
     | items ->
-        List.iter (Printf.printf "Item: %s\n") items;
-        assert_failure "Items present after destroy!" in
+      List.iter (Printf.printf "Item: %s\n") items;
+      assert_failure "Items present after destroy!"
+  in
   Lwt_main.run t
 
 let rec allpairs xs ys = match xs with
-  | [] -> []
+  | []      -> []
   | x :: xs -> List.map (fun y -> x, y) ys @ (allpairs xs ys)
 
 let _ =
   let write_tests =
     List.map (fun ((filename, (off, len)) as x) ->
         Printf.sprintf "write to %s at %d length %d" filename off len >::
-          (test_write x)
+        (test_write x)
       ) (allpairs interesting_filenames interesting_writes) in
 
   let suite = "fat" >::: [
@@ -364,5 +375,6 @@ let _ =
       "test_listdir_subdir" >:: test_listdir_subdir;
       "test_read" >:: test_read;
       "test_destroy" >:: test_destroy;
-    ] @ write_tests in
+    ] @ write_tests
+  in
   run_test_tt_main suite

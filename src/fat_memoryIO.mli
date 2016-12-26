@@ -14,8 +14,9 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-include S.BLOCK_DEVICE
-  with type 'a io = 'a Lwt.t
-   and type page_aligned_buffer = Cstruct.t
+[@@@ocaml.warning "-34"]
 
-val connect : string -> t io
+type error = Mirage_block.error
+type write_error = Mirage_block.write_error
+include V1_LWT.BLOCK with type error := error and type write_error := write_error
+val connect : string -> t Lwt.t
