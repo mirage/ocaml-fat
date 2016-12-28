@@ -1,7 +1,7 @@
 true: annot, bin_annot, principal
 true: warn_error(+1..49), warn(A-4-41-44-45)
 
-true: package(cstruct cstruct.ppx re re.str mirage-types)
+true: package(cstruct cstruct.ppx re re.str mirage-fs)
 true: package(mirage-block-lwt mirage-fs-lwt)
 true: package(lwt result rresult astring)
 
