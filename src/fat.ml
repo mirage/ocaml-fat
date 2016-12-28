@@ -14,12 +14,4 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-open Lwt.Infix
-
-module type IO_PAGE = Fat_s.IO_PAGE
 module FS = Fat_fs.Make
-module MemFS (IO: IO_PAGE) = struct
-  include FS(Fat_memoryIO)(IO)
-  let connect n = Fat_memoryIO.connect n >>= connect
-  let format n size = Fat_memoryIO.connect n >>= fun t -> format t size
-end

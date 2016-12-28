@@ -18,7 +18,9 @@ open OUnit
 open Lwt.Infix
 open Block
 open Result
-module MemFS = Fat.MemFS(Io_page)
+open Mirage_fs
+
+module MemFS = Fat.FS(Mirage_block_lwt.Mem)
 
 let fail fmt = Fmt.kstrf Lwt.fail_with fmt
 

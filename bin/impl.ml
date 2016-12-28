@@ -16,7 +16,7 @@
 open Lwt.Infix
 open Result
 
-module Filesystem = Fat_fs.Make(Block)(Io_page)
+module Filesystem = Fat_fs.Make(Block)
 open Common
 
 (* Default policy when we hit a block- or fs-level error which we don't

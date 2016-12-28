@@ -2,7 +2,7 @@
 open Lwt.Infix
 open Result
 
-module Test = Fat.FS(Block)(Io_page)
+module Test = Fat.FS(Block)
 
 let with_file flags filename f =
   Lwt_unix.openfile filename flags 0o0 >>= fun file ->
