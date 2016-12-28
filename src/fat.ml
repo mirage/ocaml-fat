@@ -23,4 +23,3 @@ module MemFS (IO: IO_PAGE) = struct
   let connect n = Fat_memoryIO.connect n >>= connect
   let format n size = Fat_memoryIO.connect n >>= fun t -> format t size
 end
-module KV_RO = Fat_KV_RO.Make

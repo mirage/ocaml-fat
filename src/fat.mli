@@ -67,9 +67,3 @@ module MemFS (M: IO_PAGE): sig
   val format : string -> int64 -> (t, write_error) Result.result Lwt.t
 
 end
-
-(** A read-only key/value interface on top of a FAT filesystem. *)
-module KV_RO (FS : V1_LWT.FS): sig
-  include V1_LWT.KV_RO
-  val connect : FS.t -> t Lwt.t
-end
