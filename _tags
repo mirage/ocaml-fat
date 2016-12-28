@@ -9,5 +9,5 @@ true: package(lwt result rresult astring)
 
 <bin/*>: package(mirage-block-unix cmdliner mirage-fs-lwt io-page io-page.unix)
 
-<test/*>: package(lwt lwt.unix cstruct oUnit mirage-fs-lwt mirage-block-unix)
+<test/*>: package(lwt lwt.unix cstruct alcotest mirage-fs-lwt mirage-block-unix)
 <test/*>: package(io-page io-page.unix mirage-block-lwt)

@@ -22,10 +22,9 @@ depends: [
   "rresult"
   "lwt" {>= "2.4.3"}
   "mirage-fs-lwt" {>= "1.0.0"}
-  "mirage-block-unix" {"1.2.0"}
+  "mirage-block-unix" {>= "1.2.0"}
   "io-page" {>= "1.6.1"}
   "re"
-  "ounit"
   "cmdliner"
   "astring"
 ]

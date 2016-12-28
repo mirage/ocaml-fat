@@ -4,7 +4,7 @@
 open Topkg
 
 let opam =
-  Pkg.opam_file ~lint_deps_excluding:(Some ["oUnit";"ounit";"ppx_tools"]) "opam"
+  Pkg.opam_file ~lint_deps_excluding:(Some ["ppx_tools"]) "opam"
 
 let () =
   Pkg.describe ~opams:[opam] "fat-filesystem" @@ fun c ->
