@@ -21,10 +21,8 @@ depends: [
   "result"
   "rresult"
   "lwt" {>= "2.4.3"}
-  "mirage-types" {>= "3.0.0"}
-  "mirage-types-lwt" {>= "3.0.0"}
-  "mirage-block-unix" {>= "1.2.0"}
-  "mirage-runtime"
+  "mirage-fs-lwt" {>= "1.0.0"}
+  "mirage-block-unix" {"1.2.0"}
   "io-page" {>= "1.6.1"}
   "re"
   "ounit"

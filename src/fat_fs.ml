@@ -16,6 +16,7 @@
 
 open Lwt.Infix
 open Mirage_block
+open Mirage_fs
 open Result
 
 type fs = {
@@ -32,13 +33,13 @@ module Make (B: Mirage_block_lwt.S) = struct
   }
 
   type error = [
-    | V1.Fs.error
+    | Mirage_fs.error
     | `Block_read of B.error
   ]
 
   type write_error = [
     | error
-    | V1.Fs.write_error
+    | Mirage_fs.write_error
     | `Directory_not_empty
     | `Block_write of B.write_error
     | `Exn of exn
@@ -48,23 +49,16 @@ module Make (B: Mirage_block_lwt.S) = struct
 
   type page_aligned_buffer = Cstruct.t
 
-  type stat = {
-    filename: string;
-    read_only: bool;
-    directory: bool;
-    size: int64;
-  }
-
   let pp_error ppf = function
-    | #V1.Fs.error as e -> Mirage_pp.pp_fs_error ppf e
-    | `Block_read err   -> B.pp_error ppf err
+    | #Mirage_fs.error as e -> Mirage_fs.pp_error ppf e
+    | `Block_read err       -> B.pp_error ppf err
 
   let pp_write_error ppf = function
-    | #error as e             -> pp_error ppf e
-    | #V1.Fs.write_error as e -> Mirage_pp.pp_fs_write_error ppf e
-    | `Directory_not_empty    -> Fmt.string ppf "Directory not empty"
-    | `Block_write err        -> B.pp_write_error ppf err
-    | `Exn e                  -> Fmt.exn ppf e
+    | #error as e                 -> pp_error ppf e
+    | #Mirage_fs.write_error as e -> Mirage_fs.pp_write_error ppf e
+    | `Directory_not_empty        -> Fmt.string ppf "Directory not empty"
+    | `Block_write err            -> B.pp_write_error ppf err
+    | `Exn e                      -> Fmt.exn ppf e
 
   let rec iter_s f = function
     | [] -> Lwt.return (Ok ())

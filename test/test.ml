@@ -188,21 +188,25 @@ module FsError = struct
       let b = Buffer.create 20 in
       let ppf = Format.formatter_of_buffer b in
       let k ppf = Format.pp_print_flush ppf (); fail "%s" (Buffer.contents b) in
-      Fmt.kpf k ppf "%a" Mirage_pp.pp_fs_write_error error
+      Fmt.kpf k ppf "%a" Mirage_fs.pp_write_error error
 end
+
+let format () =
+  Mirage_block_lwt.Mem.connect "" >>= fun t ->
+  MemFS.format t (Int64.mul 16L mib)
 
 let test_create () =
   let t =
-    MemFS.format "" (Int64.mul 16L mib) >>*= fun fs ->
+    format () >>*= fun fs ->
     let filename = "HELLO.TXT" in
     MemFS.create fs filename >>*= fun () ->
     MemFS.stat fs "/" >>*= function
-    | { MemFS.directory = true; _ } ->
+    | { directory = true; _ } ->
       let file = "/" in
       MemFS.listdir fs file >>*= fun names ->
       assert_equal ~printer:(String.concat "; ") [ filename ] names;
       Lwt.return ()
-    | { MemFS.directory = false; _ } ->
+    | { directory = false; _ } ->
       fail "Not a directory"
   in
   Lwt_main.run t
@@ -253,7 +257,7 @@ let interesting_filenames = [
 
 let test_listdir () =
   let t =
-    MemFS.format "" (Int64.mul 16L mib) >>*= fun fs ->
+    format () >>*= fun fs ->
     let filename = "hello" in
     MemFS.create fs filename >>*= fun () ->
     MemFS.listdir fs "/" >>*= fun all ->
@@ -267,7 +271,7 @@ let test_listdir () =
 
 let test_listdir_subdir () =
   let t =
-    MemFS.format "" (Int64.mul 16L mib) >>*= fun fs ->
+    format () >>*= fun fs ->
     let dirname = "hello" in
     MemFS.mkdir fs dirname >>*= fun () ->
     MemFS.listdir fs "/" >>*= fun all ->
@@ -292,7 +296,7 @@ let test_listdir_subdir () =
 
 let test_read () =
   let t =
-    MemFS.format "" (Int64.mul 16L mib) >>*= fun fs ->
+    format () >>*= fun fs ->
     let filename = "hello" in
     let length = 512 in
     MemFS.create fs filename >>*= fun () ->
@@ -317,7 +321,7 @@ let test_read () =
    read(write(data)) = data; and that files are extended properly *)
 let test_write ((filename: string), (_offset, length)) () =
   let t =
-    MemFS.format "" (Int64.mul 16L mib) >>*= fun fs ->
+    format () >>*= fun fs ->
     let open Lwt in
     ( match List.rev (Fat_path.to_string_list (Fat_path.of_string filename)) with
       | [] -> assert false
@@ -345,7 +349,8 @@ let test_write ((filename: string), (_offset, length)) () =
 
 let test_destroy () =
   let t =
-    MemFS.format "" 0x100000L >>*= fun fs ->
+    Mirage_block_lwt.Mem.connect "" >>= fun t ->
+    MemFS.format t 0x100000L >>*= fun fs ->
     MemFS.create fs "/data" >>*= fun () ->
     MemFS.destroy fs "/data" >>*= fun () ->
     MemFS.listdir fs "/" >>*= function

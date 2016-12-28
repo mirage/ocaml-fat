@@ -16,19 +16,23 @@
 
 [@@@ocaml.warning "-34"]
 
-module Make (B: V1_LWT.BLOCK)(M: Fat_s.IO_PAGE) : sig
+module Make (B: Mirage_block_lwt.S): sig
   type error = [
-    | V1.Fs.error
+    | Mirage_fs.error
     | `Block_read of B.error
   ]
   type write_error = [
     | error
-    | V1.Fs.write_error
+    | Mirage_fs.write_error
     | `Directory_not_empty
     | `Block_write of B.write_error
     | `Exn of exn
   ]
-  include V1_LWT.FS with type error := error and type write_error := write_error
+  include Mirage_fs_lwt.S
+    with type error := error
+     and type write_error := write_error
+
   val connect : B.t -> t Lwt.t
   val format : B.t -> int64 -> (t, write_error) Result.result Lwt.t
+
 end
