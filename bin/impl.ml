@@ -15,8 +15,9 @@
  *)
 open Lwt.Infix
 open Result
+open Mirage_fs
 
-module Filesystem = Fat_fs.Make(Block)(Io_page)
+module Filesystem = Fat_fs.Make(Block)
 open Common
 
 (* Default policy when we hit a block- or fs-level error which we don't
@@ -168,9 +169,9 @@ let list common filename =
            let path = Filename.concat curdir child in
            Filesystem.stat fs path >>*= fun stats ->
            Printf.printf "%s (%s)(%Ld bytes)\n" path
-             (if stats.Filesystem.directory then "DIR" else "FILE")
-             stats.Filesystem.size;
-           if stats.Filesystem.directory
+             (if stats.directory then "DIR" else "FILE")
+             stats.size;
+           if stats.directory
            then loop path
            else Lwt.return ()
         ) children

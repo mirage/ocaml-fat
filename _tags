@@ -1,12 +1,13 @@
 true: annot, bin_annot, principal
 true: warn_error(+1..49), warn(A-4-41-44-45)
 
-true: package(cstruct cstruct.ppx re re.str mirage-types mirage-types-lwt)
-true: package(lwt result rresult mirage-runtime astring)
+true: package(cstruct cstruct.ppx re re.str mirage-fs)
+true: package(mirage-block-lwt mirage-fs-lwt)
+true: package(lwt result rresult astring)
 
 <src>: include
 
-<bin/*>: package(mirage-block-unix cmdliner mirage-runtime io-page io-page.unix)
+<bin/*>: package(mirage-block-unix cmdliner mirage-fs-lwt io-page io-page.unix)
 
-<test/*>: package(lwt lwt.unix cstruct oUnit mirage-runtime mirage-block-unix)
-<test/*>: package(io-page io-page.unix)
+<test/*>: package(lwt lwt.unix cstruct alcotest mirage-fs-lwt mirage-block-unix)
+<test/*>: package(io-page io-page.unix mirage-block-lwt)

@@ -3,6 +3,6 @@ S fat/
 S lib_test/
 B _build/**
 
-PKG lwt mirage mirage-types mirage-types-lwt mirage-runtime
+PKG lwt mirage-block-lwt mirage-fs-lwt
 PKG mirage-block-lwt mirage-block-unix
-PKG cstruct cstruct.ppx oUnit astring
+PKG cstruct cstruct.ppx alcotest astring

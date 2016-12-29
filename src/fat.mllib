@@ -1,10 +1,8 @@
 Fat
-Fat_KV_RO
 Fat_boot_sector
 Fat_entry
 Fat_format
 Fat_fs
-Fat_memoryIO
 Fat_name
 Fat_path
 Fat_sector_map

@@ -14,11 +14,12 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-open OUnit
 open Lwt.Infix
 open Block
 open Result
-module MemFS = Fat.MemFS(Io_page)
+open Mirage_fs
+
+module MemFS = Fat.FS(Mirage_block_lwt.Mem)
 
 let fail fmt = Fmt.kstrf Lwt.fail_with fmt
 
@@ -54,7 +55,7 @@ let checksum_test () =
   List.iter (fun (d, expected) ->
       let d = snd d.dos in
       let checksum = compute_checksum d in
-      assert_equal ~printer:string_of_int expected checksum
+      Alcotest.(check int) __LOC__ expected checksum
     ) checksum_tests
 
 let print_int_list xs = "[" ^ ( String.concat "; " (List.map string_of_int xs) ) ^ "]"
@@ -64,44 +65,46 @@ let test_root_list () =
   let t =
     read_whole_file "test/root.dat" >>= fun bytes ->
     let all = list bytes in
-    assert_equal ~printer:string_of_int 5 (List.length all);
+    Alcotest.(check int) __LOC__ 5 (List.length all);
     let x = List.nth all 1 in
     let utf_filename =
       "l\000o\000w\000e\000r\000.\000t\000x\000t\000\000\000\255\255\255\255\255\255"
     in
-    assert_equal ~printer:(fun x -> x) utf_filename x.utf_filename;
+    Alcotest.(check string) __LOC__ utf_filename x.utf_filename;
     let a, b = x.dos in
-    assert_equal ~printer:string_of_int 192 a;
-    assert_equal ~printer:(fun x -> x) "LOWER" b.filename;
-    assert_equal ~printer:(fun x -> x) "TXT" b.ext;
-    assert_equal ~printer:string_of_bool false b.deleted;
-    assert_equal ~printer:string_of_bool false b.read_only;
-    assert_equal ~printer:string_of_bool false b.hidden;
-    assert_equal ~printer:string_of_bool false b.system;
-    assert_equal ~printer:string_of_bool false b.volume;
-    assert_equal ~printer:string_of_bool false b.subdir;
-    assert_equal ~printer:string_of_bool true b.archive;
-    assert_equal ~printer:string_of_int 0 b.start_cluster;
-    assert_equal ~printer:Int32.to_string 0l b.file_size;
-    assert_equal ~printer:string_of_int 2013 b.create.year;
-    assert_equal ~printer:string_of_int 11 b.create.month;
-    assert_equal ~printer:string_of_int 2 b.create.day;
-    assert_equal ~printer:string_of_int 16 b.create.hours;
-    assert_equal ~printer:string_of_int 58 b.create.mins;
-    assert_equal ~printer:string_of_int 52 b.create.secs;
-    assert_equal ~printer:string_of_int 100 b.create.ms;
+    Alcotest.(check int)    __LOC__ 192 a;
+    Alcotest.(check string) __LOC__ "LOWER" b.filename;
+    Alcotest.(check string) __LOC__ "TXT" b.ext;
+    Alcotest.(check bool)   __LOC__ false b.deleted;
+    Alcotest.(check bool)   __LOC__ false b.read_only;
+    Alcotest.(check bool)   __LOC__ false b.hidden;
+    Alcotest.(check bool)   __LOC__ false b.system;
+    Alcotest.(check bool)   __LOC__ false b.volume;
+    Alcotest.(check bool)   __LOC__ false b.subdir;
+    Alcotest.(check bool)   __LOC__ true b.archive;
+    Alcotest.(check int)    __LOC__ 0 b.start_cluster;
+    Alcotest.(check int32)  __LOC__ 0l b.file_size;
+    Alcotest.(check int)    __LOC__ 2013 b.create.year;
+    Alcotest.(check int)    __LOC__ 11 b.create.month;
+    Alcotest.(check int)    __LOC__ 2 b.create.day;
+    Alcotest.(check int)    __LOC__ 16 b.create.hours;
+    Alcotest.(check int)    __LOC__ 58 b.create.mins;
+    Alcotest.(check int)    __LOC__ 52 b.create.secs;
+    Alcotest.(check int)    __LOC__ 100 b.create.ms;
     let lfns = x.lfns in
-    assert_equal ~printer:string_of_int 1 (List.length lfns);
+    Alcotest.(check int)    __LOC__ 1 (List.length lfns);
     let a, b = List.hd lfns in
-    assert_equal ~printer:string_of_int 160 a;
-    assert_equal ~printer:string_of_bool false b.lfn_deleted;
-    assert_equal ~printer:string_of_bool true b.lfn_last;
-    assert_equal ~printer:string_of_int 1 b.lfn_seq;
-    assert_equal ~printer:string_of_int 252 b.lfn_checksum;
-    assert_equal ~printer:(fun x -> x) utf_filename b.lfn_utf16_name;
+    Alcotest.(check int)    __LOC__ 160 a;
+    Alcotest.(check bool)   __LOC__ false b.lfn_deleted;
+    Alcotest.(check bool)   __LOC__ true b.lfn_last;
+    Alcotest.(check int)    __LOC__ 1 b.lfn_seq;
+    Alcotest.(check int)    __LOC__ 252 b.lfn_checksum;
+    Alcotest.(check string) __LOC__ utf_filename b.lfn_utf16_name;
     Lwt.return ()
   in
   Lwt_main.run t
+
+let fat_format = Alcotest.testable (Fmt.of_to_string Fat_format.to_string) (=)
 
 let test_chains () =
   let t =
@@ -110,10 +113,7 @@ let test_chains () =
     let boot = match unmarshal bytes with
       | Error x -> failwith x
       | Ok x -> x in
-    let printer = function
-      | Error e -> e
-      | Ok x -> Fat_format.to_string x in
-    assert_equal ~printer
+    Alcotest.(check (result fat_format string)) __LOC__
       (Ok Fat_format.FAT16) (Fat_boot_sector.detect_format boot);
     read_whole_file "test/root.dat" >>= fun bytes ->
     let open Fat_name in
@@ -122,15 +122,15 @@ let test_chains () =
 
     let expected = [0; 0; 0; 2235; 3] in
     let actual = List.map (fun x -> (snd (x.dos)).start_cluster) all in
-    assert_equal ~printer:print_int_list expected actual;
-    assert_equal ~printer:print_int_list []
+    Alcotest.(check (list int)) __LOC__ expected actual;
+    Alcotest.(check (list int)) __LOC__ []
       (Fat_entry.Chain.follow Fat_format.FAT16 fat 0);
 
-    assert_equal ~printer:print_int_list [2235]
+    Alcotest.(check (list int)) __LOC__  [2235]
       (Fat_entry.Chain.follow Fat_format.FAT16 fat 2235);
     let rec ints last x = if x = last then [x] else x :: (ints last (x + 1)) in
     let expected = ints 2234 3 in
-    assert_equal ~printer:print_int_list expected
+    Alcotest.(check (list int)) __LOC__ expected
       (Fat_entry.Chain.follow Fat_format.FAT16 fat 3);
     Lwt.return ()
   in
@@ -144,15 +144,15 @@ let test_parse_boot_sector () =
       | Error x -> failwith x
       | Ok x -> x in
     let check x =
-      assert_equal ~printer:(fun x -> x) "mkdosfs\000" x.oem_name;
-      assert_equal ~printer:string_of_int 512 x.bytes_per_sector;
-      assert_equal ~printer:string_of_int 4 x.sectors_per_cluster;
-      assert_equal ~printer:string_of_int 4 x.reserved_sectors;
-      assert_equal ~printer:string_of_int 2 x.number_of_fats;
-      assert_equal ~printer:string_of_int 512 x.number_of_root_dir_entries;
-      assert_equal ~printer:Int32.to_string 30720l x.total_sectors;
-      assert_equal ~printer:string_of_int 32 x.sectors_per_fat;
-      assert_equal ~printer:Int32.to_string 0l x.hidden_preceeding_sectors;
+      Alcotest.(check string) __LOC__ "mkdosfs\000" x.oem_name;
+      Alcotest.(check int)    __LOC__ 512 x.bytes_per_sector;
+      Alcotest.(check int)    __LOC__ 4 x.sectors_per_cluster;
+      Alcotest.(check int)    __LOC__ 4 x.reserved_sectors;
+      Alcotest.(check int)    __LOC__ 2 x.number_of_fats;
+      Alcotest.(check int)    __LOC__ 512 x.number_of_root_dir_entries;
+      Alcotest.(check int32)  __LOC__ 30720l x.total_sectors;
+      Alcotest.(check int)    __LOC__ 32 x.sectors_per_fat;
+      Alcotest.(check int32)  __LOC__ 0l x.hidden_preceeding_sectors;
       let sectors_of_fat =
         [4; 5; 6; 7; 8; 9; 10; 11; 12; 13; 14; 15; 16; 17; 18; 19; 20; 21;
          22; 23; 24; 25; 26; 27; 28; 29; 30; 31; 32; 33; 34; 35]
@@ -161,9 +161,9 @@ let test_parse_boot_sector () =
         [68; 69; 70; 71; 72; 73; 74; 75; 76; 77; 78; 79; 80; 81; 82; 83; 84;
          85; 86; 87; 88; 89; 90; 91; 92; 93; 94; 95; 96; 97; 98; 99]
       in
-      assert_equal ~printer:print_int_list sectors_of_fat
+      Alcotest.(check (list int)) __LOC__ sectors_of_fat
         (Fat_boot_sector.sectors_of_fat x);
-      assert_equal ~printer:print_int_list sectors_of_root_dir
+      Alcotest.(check (list int)) __LOC__ sectors_of_root_dir
         (Fat_boot_sector.sectors_of_root_dir x) in
     check x;
     let buf = alloc sizeof in
@@ -186,38 +186,28 @@ module FsError = struct
       let b = Buffer.create 20 in
       let ppf = Format.formatter_of_buffer b in
       let k ppf = Format.pp_print_flush ppf (); fail "%s" (Buffer.contents b) in
-      Fmt.kpf k ppf "%a" Mirage_pp.pp_fs_write_error error
+      Fmt.kpf k ppf "%a" Mirage_fs.pp_write_error error
 end
+
+let format () =
+  Mirage_block_lwt.Mem.connect "" >>= fun t ->
+  MemFS.format t (Int64.mul 16L mib)
 
 let test_create () =
   let t =
-    MemFS.format "" (Int64.mul 16L mib) >>*= fun fs ->
+    format () >>*= fun fs ->
     let filename = "HELLO.TXT" in
     MemFS.create fs filename >>*= fun () ->
     MemFS.stat fs "/" >>*= function
-    | { MemFS.directory = true; _ } ->
+    | { directory = true; _ } ->
       let file = "/" in
       MemFS.listdir fs file >>*= fun names ->
-      assert_equal ~printer:(String.concat "; ") [ filename ] names;
+      Alcotest.(check (list string)) __LOC__ [ filename ] names;
       Lwt.return ()
-    | { MemFS.directory = false; _ } ->
+    | { directory = false; _ } ->
       fail "Not a directory"
   in
   Lwt_main.run t
-
-exception Cstruct_differ
-
-let cstruct_equal a b =
-  let check_contents a b =
-    try
-      for i = 0 to Cstruct.len a - 1 do
-        let a' = Cstruct.get_char a i in
-        let b' = Cstruct.get_char b i in
-        if a' <> b' then raise Cstruct_differ
-      done;
-      true
-    with _ -> false in
-  (Cstruct.len a = (Cstruct.len b)) && (check_contents a b)
 
 let make_pattern tag length =
   (* if the tag is smaller than length then truncate it *)
@@ -251,7 +241,7 @@ let interesting_filenames = [
 
 let test_listdir () =
   let t =
-    MemFS.format "" (Int64.mul 16L mib) >>*= fun fs ->
+    format () >>*= fun fs ->
     let filename = "hello" in
     MemFS.create fs filename >>*= fun () ->
     MemFS.listdir fs "/" >>*= fun all ->
@@ -265,7 +255,7 @@ let test_listdir () =
 
 let test_listdir_subdir () =
   let t =
-    MemFS.format "" (Int64.mul 16L mib) >>*= fun fs ->
+    format () >>*= fun fs ->
     let dirname = "hello" in
     MemFS.mkdir fs dirname >>*= fun () ->
     MemFS.listdir fs "/" >>*= fun all ->
@@ -290,7 +280,7 @@ let test_listdir_subdir () =
 
 let test_read () =
   let t =
-    MemFS.format "" (Int64.mul 16L mib) >>*= fun fs ->
+    format () >>*= fun fs ->
     let filename = "hello" in
     let length = 512 in
     MemFS.create fs filename >>*= fun () ->
@@ -298,15 +288,15 @@ let test_read () =
     MemFS.write fs filename 0 buffer >>*= fun () ->
     MemFS.read fs filename 0 length >>*= fun buffers ->
     let count buffers = List.fold_left (+) 0 (List.map Cstruct.len buffers) in
-    assert_equal ~printer:string_of_int length (count buffers);
+    Alcotest.(check int) __LOC__ length (count buffers);
     MemFS.read fs filename 0 (length * 2) >>*= fun buffers ->
-    assert_equal ~printer:string_of_int length (count buffers);
+    Alcotest.(check int) __LOC__ length (count buffers);
     MemFS.read fs filename 1 (length * 2) >>*= fun buffers ->
-    assert_equal ~printer:string_of_int (length - 1) (count buffers);
+    Alcotest.(check int) __LOC__ (length - 1) (count buffers);
     MemFS.read fs filename 1 (length - 2) >>*= fun buffers ->
-    assert_equal ~printer:string_of_int (length - 2) (count buffers);
+    Alcotest.(check int) __LOC__ (length - 2) (count buffers);
     MemFS.read fs filename length length >>*= fun buffers ->
-    assert_equal ~printer:string_of_int 0 (count buffers);
+    Alcotest.(check int) __LOC__ 0 (count buffers);
     Lwt.return ()
   in
   Lwt_main.run t
@@ -315,7 +305,7 @@ let test_read () =
    read(write(data)) = data; and that files are extended properly *)
 let test_write ((filename: string), (_offset, length)) () =
   let t =
-    MemFS.format "" (Int64.mul 16L mib) >>*= fun fs ->
+    format () >>*= fun fs ->
     let open Lwt in
     ( match List.rev (Fat_path.to_string_list (Fat_path.of_string filename)) with
       | [] -> assert false
@@ -333,24 +323,28 @@ let test_write ((filename: string), (_offset, length)) () =
     let buffer = make_pattern "basic writing test " length in
     MemFS.write fs filename 0 buffer >>*= fun () ->
     MemFS.read fs filename 0 512 >>*= fun buffers ->
-    let to_string x =
-      Printf.sprintf "\"%s\"(%d)" (Cstruct.to_string x) (Cstruct.len x)
+    let cstruct =
+      Alcotest.testable
+        (fun ppf x ->
+           Fmt.pf ppf "\"%s\"(%d)" (Cstruct.to_string x) (Cstruct.len x)
+        ) Cstruct.equal
     in
-    assert_equal ~printer:to_string ~cmp:cstruct_equal buffer (List.hd buffers);
+    Alcotest.(check cstruct) __LOC__ buffer (List.hd buffers);
     return ()
   in
   Lwt_main.run t
 
 let test_destroy () =
   let t =
-    MemFS.format "" 0x100000L >>*= fun fs ->
+    Mirage_block_lwt.Mem.connect "" >>= fun t ->
+    MemFS.format t 0x100000L >>*= fun fs ->
     MemFS.create fs "/data" >>*= fun () ->
     MemFS.destroy fs "/data" >>*= fun () ->
     MemFS.listdir fs "/" >>*= function
     | []    -> Lwt.return ()
     | items ->
       List.iter (Printf.printf "Item: %s\n") items;
-      assert_failure "Items present after destroy!"
+      Alcotest.fail "Items present after destroy!"
   in
   Lwt_main.run t
 
@@ -358,23 +352,23 @@ let rec allpairs xs ys = match xs with
   | []      -> []
   | x :: xs -> List.map (fun y -> x, y) ys @ (allpairs xs ys)
 
-let _ =
-  let write_tests =
-    List.map (fun ((filename, (off, len)) as x) ->
-        Printf.sprintf "write to %s at %d length %d" filename off len >::
-        (test_write x)
-      ) (allpairs interesting_filenames interesting_writes) in
+let write_tests =
+  List.map (fun ((filename, (off, len)) as x) ->
+      Printf.sprintf "write to %s at %d length %d" filename off len,
+      `Quick,
+      (test_write x)
+    ) (allpairs interesting_filenames interesting_writes)
 
-  let suite = "fat" >::: [
-      "test_parse_boot_sector" >:: test_parse_boot_sector;
-      "checksum" >:: checksum_test;
-      "test_root_list" >:: test_root_list;
-      "test_chains" >:: test_chains;
-      "test_create" >:: test_create;
-      "test_listdir" >:: test_listdir;
-      "test_listdir_subdir" >:: test_listdir_subdir;
-      "test_read" >:: test_read;
-      "test_destroy" >:: test_destroy;
-    ] @ write_tests
-  in
-  run_test_tt_main suite
+let suite = [
+  "parse_boot_sector", `Quick, test_parse_boot_sector;
+  "checksum"         , `Quick, checksum_test;
+  "root_list"        , `Quick, test_root_list;
+  "chains"           , `Quick, test_chains;
+  "create"           , `Quick, test_create;
+  "listdir"          , `Quick, test_listdir;
+  "listdir_subdir"   , `Quick, test_listdir_subdir;
+  "read"             , `Quick, test_read;
+  "destroy"          , `Quick, test_destroy;
+  ] @ write_tests
+
+let () = Alcotest.run "fat" ["tests", suite]
