@@ -1,3 +1,12 @@
+### 0.12.0 (unreleased):
+
+* Build against MirageOS 3 and drop support for previous versions.
+* Use alcotest instead of ounit.
+* Remove Fat_memoryIO and Fat.MemFS (if needed, use Mirage_block_lwt.Mem).
+* Remove the IO_PAGE functor parameter.
+* Remove Fat_KV_RO, which is now in mirage-fs.
+* Use topkg instead of OASIS.
+
 ### 0.11.0 (09-Sep-2016):
 
 * Use the ppx version of cstruct. (#44)
