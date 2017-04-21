@@ -48,7 +48,7 @@
 
 ### 0.7.0 (9-Dec-2013):
 
-* update to V1.BLOCK with 'id' interface
+* update to Mirage_types.BLOCK with 'id' interface
 * fix 'make uninstall' (doesn't fail if configure hasn't
   been run)
 
@@ -59,8 +59,8 @@
 ### 0.6.0 (7-Dec-2013)
 
 * add a command-line tool for maniplating images ('fat')
-* functorise over the mirage V1 BLOCK_DEVICE and IO_PAGE
-* implements the mirage V1 type FS
+* functorise over the mirage Mirage_types BLOCK_DEVICE and IO_PAGE
+* implements the mirage Mirage_types type FS
 
 ### 0.5.0 (2-Dec-2013)
 
