@@ -1,4 +1,4 @@
-### 0.12.0 (unreleased):
+### 0.12.0 (2017-01-20):
 
 * Build against MirageOS 3 and drop support for previous versions.
 * Use alcotest instead of ounit.
