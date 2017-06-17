@@ -371,4 +371,6 @@ let suite = [
   "destroy"          , `Quick, test_destroy;
   ] @ write_tests
 
-let () = Alcotest.run "fat" ["tests", suite]
+let () =
+  Unix.chdir "../../../";
+  Alcotest.run "fat" ["tests", suite]
