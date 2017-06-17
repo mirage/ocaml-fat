@@ -1,3 +1,8 @@
+### 0.12.1 (2017-06-17):
+
+* Switch to jbuilder
+* Add dependency on io-page-unix
+
 ### 0.12.0 (2017-01-20):
 
 * Build against MirageOS 3 and drop support for previous versions.
