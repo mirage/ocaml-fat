@@ -2,5 +2,5 @@
 
 (executables
  ((names (main))
-  (libraries  (fat-filesystem mirage-block-unix cmdliner mirage-fs-lwt io-page io-page.unix)
+  (libraries  (fat-filesystem mirage-block-unix cmdliner mirage-fs-lwt io-page-unix)
 )))

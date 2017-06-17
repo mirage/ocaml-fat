@@ -22,7 +22,7 @@ depends: [
   "mirage-fs-lwt" {>= "1.0.0"}
   "mirage-block-lwt" {>= "1.0.0"}
   "mirage-block-unix" {>= "2.5.0"}
-  "io-page" {>= "1.6.1"}
+  "io-page-unix" {>= "2.0.0"}
   "re"
   "cmdliner"
   "astring"
