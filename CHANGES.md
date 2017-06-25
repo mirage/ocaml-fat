@@ -1,3 +1,7 @@
+### 0.12.2 (2017-06-24):
+
+* Include the `fat` command-line tool accidentally omitted in 0.12.1
+
 ### 0.12.1 (2017-06-17):
 
 * Switch to jbuilder
