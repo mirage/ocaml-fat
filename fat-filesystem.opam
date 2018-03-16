@@ -23,7 +23,7 @@ depends: [
   "mirage-block-lwt" {>= "1.0.0"}
   "mirage-block-unix" {>= "2.5.0"}
   "io-page-unix" {>= "2.0.0"}
-  "re"
+  "re" {>= "1.7.2"}
   "cmdliner"
   "astring"
   "alcotest" {test}
