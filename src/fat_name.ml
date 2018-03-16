@@ -118,8 +118,8 @@ let legal_dos_string x =
     true
   with Not_found -> false
 
-let dot = Re_str.regexp_string "."
-let is_legal_dos_name filename = match Re_str.split dot filename with
+let dot = Re.Str.regexp_string "."
+let is_legal_dos_name filename = match Re.Str.split dot filename with
   | [ one ] -> String.length one <= 8 && (legal_dos_string one)
   | [ one; two ] -> String.length one <= 8
                     && (String.length two <= 3)
@@ -138,7 +138,7 @@ let uppercase = Astring.String.Ascii.uppercase
 
 let dos_name_of_filename filename =
   if is_legal_dos_name filename
-  then match Re_str.split dot filename with
+  then match Re.Str.split dot filename with
     | [ one ] -> add_padding ' ' 8 one, "   "
     | [ one; two ] -> add_padding ' ' 8 one, add_padding ' ' 3 two
     | _ -> assert false (* implied by is_legal_dos_name *)
