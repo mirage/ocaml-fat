@@ -130,9 +130,9 @@ let is_legal_dos_name filename = match Re.Str.split dot filename with
 let add_padding p n x =
   if String.length x >= n then x
   else
-    let y = String.make n p in
-    String.blit x 0 y 0 (String.length x);
-    y
+    let y = Bytes.make n p in
+    Bytes.blit_string x 0 y 0 (String.length x);
+    Bytes.unsafe_to_string y
 
 let uppercase = Astring.String.Ascii.uppercase
 
@@ -153,22 +153,22 @@ let ascii_to_utf16 x =
   (* round up to next multiple of 13 *)
   let padto = (l + 1 + 12) / 13 * 13 in
   let total = max (l + 1) padto in (* NULL *)
-  let results = String.make (total * 2) (char_of_int 0xff) in
+  let results = Bytes.make (total * 2) (char_of_int 0xff) in
   for i = 0 to l - 1 do
     Bytes.set results (i*2) x.[i];
     Bytes.set results (i*2+1) (char_of_int 0);
   done;
   Bytes.set results (l*2) (char_of_int 0);
   Bytes.set results (l*2+1) (char_of_int 0);
-  results
+  Bytes.unsafe_to_string results
 
 (* XXX: this code is bad and I should feel bad. Replace with 'uutf' *)
 let utf16_to_ascii s =
-  let result = String.make (String.length s / 2) 'X' in
-  for i = 0 to String.length result - 1 do
+  let result = Bytes.make (String.length s / 2) 'X' in
+  for i = 0 to Bytes.length result - 1 do
     Bytes.set result i s.[i * 2];
   done;
-  result
+  Bytes.unsafe_to_string result
 
 (** Returns the checksum corresponding to the 8.3 DOS filename *)
 let compute_checksum x =
@@ -337,7 +337,7 @@ let unmarshal buf =
       lfn_utf16_name = utf1 ^ utf2 ^ utf3;
     }
   end else begin
-    let filename = Cstruct.to_string (get_name_filename buf) in
+    let filename = Cstruct.to_bytes (get_name_filename buf) in
     let ext = Cstruct.to_string (get_name_ext buf) in
     let flags = get_name_flags buf in
     let read_only = flags land 0x1 = 0x1 in
@@ -355,14 +355,14 @@ let unmarshal buf =
     let last_modify_date = get_name_last_modify_date buf in
     let start_cluster = get_name_start_cluster buf in
     let file_size = get_name_file_size buf in
-    let x = int_of_char filename.[0] in
+    let x = int_of_char @@ Bytes.get filename 0 in
     if x = 0
     then End
     else
       let deleted = x = 0xe5 in
       Bytes.set filename 0 @@ char_of_int (if x = 0x05 then 0xe5 else x);
       Dos {
-        filename = remove_padding filename;
+        filename = remove_padding (Bytes.to_string filename);
         ext = remove_padding ext;
         read_only = read_only;
         deleted = deleted;
@@ -401,8 +401,8 @@ let marshal (buf: Cstruct.t) t =
     set_lfn__0_2 buf 0x0;
     set_lfn_utf3 utf3 0 buf
   | Dos x ->
-    let filename = add_padding ' ' 8 x.filename in
-    let y = int_of_char filename.[0] in
+    let filename = Bytes.of_string @@ add_padding ' ' 8 x.filename in
+    let y = int_of_char @@ Bytes.get filename 0 in
     Bytes.set filename 0 @@ char_of_int (if y = 0xe5 then 0x05 else y);
     if x.deleted then Bytes.set filename 0 @@ char_of_int 0xe5;
     let ext = add_padding ' ' 3 x.ext in
@@ -413,6 +413,8 @@ let marshal (buf: Cstruct.t) t =
     let last_modify_time = int_of_time x.modify in
     let last_modify_date = int_of_date x.modify in
 
+    let filename = Bytes.to_string filename in
+    (* FIXME: the Cstruct helper shouldn't mutate the immutable string *)
     set_name_filename filename 0 buf;
     set_name_ext ext 0 buf;
     let flags =
