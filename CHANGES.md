@@ -1,3 +1,9 @@
+### 0.12.3 (2018-03-27):
+
+* Autogenerate .travis.yml (#71 from @yomimono)
+* Use Re.Str instead of deprecated Re_str (#72 from @ricarkol)
+* Fix build with `-safe-string` (#73 from @djs55)
+
 ### 0.12.2 (2017-06-24):
 
 * Include the `fat` command-line tool accidentally omitted in 0.12.1
