@@ -33,6 +33,6 @@ module Make (B: Mirage_block_lwt.S): sig
      and type write_error := write_error
 
   val connect : B.t -> t Lwt.t
-  val format : B.t -> int64 -> (t, write_error) Result.result Lwt.t
+  val format : B.t -> int64 -> (t, write_error) result Lwt.t
 
 end

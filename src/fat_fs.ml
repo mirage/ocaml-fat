@@ -17,7 +17,6 @@
 open Lwt.Infix
 open Mirage_block
 open Mirage_fs
-open Result
 
 type fs = {
   boot  : Fat_boot_sector.t;

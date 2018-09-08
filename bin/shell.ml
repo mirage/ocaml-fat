@@ -1,7 +1,6 @@
 (* This is a toplevel-like test program *)
 open Lwt.Infix
 open Mirage_fs
-open Result
 
 module Test = Fat.FS(Block)
 
