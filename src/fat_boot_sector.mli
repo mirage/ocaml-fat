@@ -14,8 +14,6 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-open Result
-
 type t = {
   oem_name: string;
   bytes_per_sector: int;
@@ -49,7 +47,7 @@ val sectors_of_cluster: t -> int -> int list
 val clusters: t -> int
 (** Return the number of clusters *)
 
-val detect_format: t -> (Fat_format.t, string) Result.result
+val detect_format: t -> (Fat_format.t, string) result
 (* Choose between FAT12, FAT16 and FAT32 using heuristic from:
    http://averstak.tripod.com/fatdox/bootsec.htm *)
 

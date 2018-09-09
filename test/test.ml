@@ -16,7 +16,6 @@
 
 open Lwt.Infix
 open Block
-open Result
 open Mirage_fs
 
 module MemFS = Fat.FS(Mirage_block_lwt.Mem)

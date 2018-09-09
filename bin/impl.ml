@@ -14,7 +14,6 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 open Lwt.Infix
-open Result
 open Mirage_fs
 
 module Filesystem = Fat.FS(Block)
@@ -31,11 +30,11 @@ let (>>*=) m f = m >>= function
   | Ok x    -> f x
 
 let rec iter_s f = function
-  | [] -> Lwt.return (Result.Ok ())
+  | [] -> Lwt.return (Ok ())
   | x :: xs ->
     f x >>= function
-    | Result.Error e -> Lwt.return (Result.Error e)
-    | Result.Ok () -> iter_s f xs
+    | Error e -> Lwt.return (Error e)
+    | Ok () -> iter_s f xs
 
 let alloc bytes =
   let pages = Io_page.(to_cstruct (get ((bytes + 4095) / 4096))) in
@@ -65,8 +64,8 @@ let copy_file_in fs outside inside =
            let frag = Cstruct.sub block 0 this in
            Block.really_read ifd frag >>= fun () ->
            Filesystem.write fs inside offset frag >>= function
-           | Result.Ok () -> loop (offset + this) (remaining - this)
-           | Result.Error e ->
+           | Ok () -> loop (offset + this) (remaining - this)
+           | Error e ->
              let b = Buffer.create 20 in
              let ppf = Format.formatter_of_buffer b in
              let k ppf =
