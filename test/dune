@@ -1,11 +1,4 @@
-(executables
+(test
  (libraries fat-filesystem lwt lwt.unix cstruct alcotest mirage-fs-lwt
    mirage-block-unix io-page.unix mirage-block-lwt)
- (names test))
-
-(alias
- (name runtest)
- (deps
-  (:< test.exe))
- (action
-  (run %{<})))
+ (name test))
