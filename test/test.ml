@@ -62,7 +62,7 @@ let print_int_list xs = "[" ^ ( String.concat "; " (List.map string_of_int xs) )
 let test_root_list () =
   let open Fat_name in
   let t =
-    read_whole_file "test/root.dat" >>= fun bytes ->
+    read_whole_file "root.dat" >>= fun bytes ->
     let all = list bytes in
     Alcotest.(check int) __LOC__ 5 (List.length all);
     let x = List.nth all 1 in
@@ -108,16 +108,16 @@ let fat_format = Alcotest.testable (Fmt.of_to_string Fat_format.to_string) (=)
 let test_chains () =
   let t =
     let open Fat_boot_sector in
-    read_sector "test/bootsector.dat" >>= fun bytes ->
+    read_sector "bootsector.dat" >>= fun bytes ->
     let boot = match unmarshal bytes with
       | Error x -> failwith x
       | Ok x -> x in
     Alcotest.(check (result fat_format string)) __LOC__
       (Ok Fat_format.FAT16) (Fat_boot_sector.detect_format boot);
-    read_whole_file "test/root.dat" >>= fun bytes ->
+    read_whole_file "root.dat" >>= fun bytes ->
     let open Fat_name in
     let all = list bytes in
-    read_whole_file "test/fat.dat" >>= fun fat ->
+    read_whole_file "fat.dat" >>= fun fat ->
 
     let expected = [0; 0; 0; 2235; 3] in
     let actual = List.map (fun x -> (snd (x.dos)).start_cluster) all in
@@ -138,7 +138,7 @@ let test_chains () =
 let test_parse_boot_sector () =
   let t =
     let open Fat_boot_sector in
-    read_sector "test/bootsector.dat" >>= fun bytes ->
+    read_sector "bootsector.dat" >>= fun bytes ->
     let x = match unmarshal bytes with
       | Error x -> failwith x
       | Ok x -> x in
@@ -371,5 +371,4 @@ let suite = [
   ] @ write_tests
 
 let () =
-  Unix.chdir "../../../";
   Alcotest.run "fat" ["tests", suite]
