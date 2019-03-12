@@ -1,9 +1,10 @@
-### v0.12.3 (2019-03-11):
+### v0.13.0 (2019-03-11):
 - port to dune from jbuilder (#79 @emillon)
-- update opam metadata to 2.0 format (@avsm)
-- test with OCaml 4.07 (@avsm)
+- update opam metadata to 2.0 format (#80 @avsm)
+- test with OCaml 4.07 (#80 @avsm)
+- update opam metadata to 2.0 format (#80 @avsm)
 - work with cstruct 1.7.0 by not using leading underscores
-  in prefix fields (@avsm)
+  in prefix fields (#80 @avsm)
 
 ### 0.12.3 (2018-03-27):
 
