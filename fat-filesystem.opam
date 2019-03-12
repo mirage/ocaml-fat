@@ -13,8 +13,7 @@ build: [
 depends: [
   "dune" {build & >= "1.0"}
   "cstruct" {>= "3.0.0"}
-  "ppx_tools" {build}
-  "ppx_cstruct" {build}
+  "ppx_cstruct"
   "rresult"
   "lwt" {>= "2.4.3"}
   "mirage-fs" {>= "1.0.0"}
