@@ -1,10 +1,5 @@
 (executables
  (names main)
+ (public_names fat)
  (libraries fat-filesystem mirage-block-unix cmdliner mirage-fs-lwt
    io-page-unix))
-
-(install
- (section bin)
- (package fat-filesystem)
- (files
-  (main.exe as fat)))

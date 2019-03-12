@@ -12,3 +12,4 @@ env:
   - PACKAGE="fat-filesystem" OCAML_VERSION="4.04"
   - PACKAGE="fat-filesystem" OCAML_VERSION="4.05"
   - PACKAGE="fat-filesystem" OCAML_VERSION="4.06"
+  - PACKAGE="fat-filesystem" OCAML_VERSION="4.07"

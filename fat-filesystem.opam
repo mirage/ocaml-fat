@@ -1,20 +1,15 @@
-opam-version: "1.2"
-authors:      ["Dave Scott" "Anil Madhavapeddy"]
-maintainer:   "dave@recoil.org"
-homepage:     "https://github.com/mirage/ocaml-fat"
-bug-reports:  "https://github.com/mirage/ocaml-fat/issues"
-dev-repo:     "https://github.com/mirage/ocaml-fat.git"
-doc:          "https://mirage.github.io/ocaml-fat/"
-
-build: [
-  ["dune" "subst"] {pinned}
-  ["dune" "build" "-p" name "-j" jobs]
-]
+opam-version: "2.0"
+maintainer: "dave@recoil.org"
+authors: ["Dave Scott" "Anil Madhavapeddy"]
+tags: ["org:mirage" "org:xapi-project"]
+homepage: "https://github.com/mirage/ocaml-fat"
+doc: "https://mirage.github.io/ocaml-fat/"
+bug-reports: "https://github.com/mirage/ocaml-fat/issues"
 depends: [
+  "ocaml" {>= "4.03.0"}
   "dune" {build & >= "1.0"}
   "cstruct" {>= "3.0.0"}
-  "ppx_tools" {build}
-  "ppx_cstruct" {build}
+  "ppx_cstruct"
   "rresult"
   "lwt" {>= "2.4.3"}
   "mirage-fs" {>= "1.0.0"}
@@ -25,10 +20,18 @@ depends: [
   "re" {>= "1.7.2"}
   "cmdliner"
   "astring"
-  "alcotest" {test}
+  "alcotest" {with-test}
 ]
-tags: [
-  "org:mirage"
-  "org:xapi-project"
+build: [
+  ["dune" "subst"] {pinned}
+  ["dune" "build" "-p" name "-j" jobs]
 ]
-available: [ ocaml-version >= "4.03.0" ]
+dev-repo: "git+https://github.com/mirage/ocaml-fat.git"
+synopsis: "Pure OCaml implementation of the FAT filesystem"
+description: """
+This library has two purposes:
+1. to allow the easy preparation of bootable disk images
+     containing [mirage](https://mirage.io) kernels
+2. to provide a simple filesystem layer for MirageOS applications
+"""
+
