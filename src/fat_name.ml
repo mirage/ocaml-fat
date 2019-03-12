@@ -282,17 +282,15 @@ let int_of_date x =
   let y = (x.year - 1980) lsl 9 in
   d lor m lor y
 
-[@@@ocaml.warning "-32"]
-
 [%%cstruct
 type lfn = {
   seq: uint8_t ;
   utf1: uint8_t [@len 10] ;
-  _0f: uint8_t ;
-  _0: uint8_t ;
+  v_0f: uint8_t ;
+  v_0: uint8_t ;
   checksum: uint8_t ;
   utf2: uint8_t [@len 12] ;
-  _0_2: uint16_t ;
+  v_0_2: uint16_t ;
   utf3: uint8_t [@len 4]
 } [@@little_endian]
 ]
@@ -302,7 +300,7 @@ type name = {
   filename: uint8_t [@len 8] ;
   ext: uint8_t [@len 3] ;
   flags: uint8_t ;
-  _reserved: uint8_t ;
+  reserved: uint8_t ;
   create_time_ms: uint8_t ; (* high precision create time 0-199 in units of 10ms *)
   create_time: uint16_t ;
   create_date: uint16_t ;
@@ -315,15 +313,13 @@ type name = {
 } [@@little_endian]
 ]
 
-[@@@ocaml.warning "+32"]
-
 let sizeof = sizeof_name
 let _ = assert(sizeof_lfn = sizeof_name)
 
 let unmarshal buf =
   if Cstruct.len buf = 0
   then End
-  else if get_lfn__0f buf = 0x0f then begin
+  else if get_lfn_v_0f buf = 0x0f then begin
     let seq = get_lfn_seq buf in
     let utf1 = Cstruct.to_string (get_lfn_utf1 buf) in
     let checksum = get_lfn_checksum buf in
@@ -394,11 +390,11 @@ let marshal (buf: Cstruct.t) t =
     let checksum = l.lfn_checksum in
     set_lfn_seq buf seq;
     set_lfn_utf1 utf1 0 buf;
-    set_lfn__0f buf 0x0f;
-    set_lfn__0 buf 0x0;
+    set_lfn_v_0f buf 0x0f;
+    set_lfn_v_0 buf 0x0;
     set_lfn_checksum buf checksum;
     set_lfn_utf2 utf2 0 buf;
-    set_lfn__0_2 buf 0x0;
+    set_lfn_v_0_2 buf 0x0;
     set_lfn_utf3 utf3 0 buf
   | Dos x ->
     let filename = Bytes.of_string @@ add_padding ' ' 8 x.filename in
@@ -425,7 +421,7 @@ let marshal (buf: Cstruct.t) t =
         (if x.subdir    then 0x10 else 0x0) lor
         (if x.archive   then 0x20 else 0x0) in
     set_name_flags buf flags;
-    set_name__reserved buf 0;
+    set_name_reserved buf 0;
     set_name_create_time_ms buf create_time_ms;
     set_name_create_time buf create_time;
     set_name_create_date buf create_date;
