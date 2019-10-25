@@ -14,9 +14,7 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-[@@@ocaml.warning "-34"]
-
-module Make (B: Mirage_block_lwt.S): sig
+module Make (B: Mirage_block.S): sig
   type error = [
     | Mirage_fs.error
     | `Block_read of B.error
@@ -28,7 +26,7 @@ module Make (B: Mirage_block_lwt.S): sig
     | `Block_write of B.write_error
     | `Exn of exn
   ]
-  include Mirage_fs_lwt.S
+  include Mirage_fs.S
     with type error := error
      and type write_error := write_error
 

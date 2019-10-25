@@ -1,5 +1,5 @@
 (executables
  (names main)
  (public_names fat)
- (libraries fat-filesystem mirage-block-unix cmdliner mirage-fs-lwt
+ (libraries fat-filesystem mirage-block-unix cmdliner mirage-fs
    io-page-unix))

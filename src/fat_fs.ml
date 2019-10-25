@@ -25,7 +25,7 @@ type fs = {
   root  : Cstruct.t;
 }
 
-module Make (B: Mirage_block_lwt.S) = struct
+module Make (B: Mirage_block.S) = struct
   type t = {
     device: B.t;
     fs: fs;
@@ -69,9 +69,7 @@ module Make (B: Mirage_block_lwt.S) = struct
   let (>>*=) x f = x >>= function Ok m -> f m | Error e -> Lwt.return @@ Error e
   let (>|*=) x f = x >|= function Ok m -> f m | Error e -> Error e
 
-  let alloc bytes =
-    let pages = Io_page.get_buf ~n:((bytes + 4095) / 4096) () in
-    Cstruct.sub pages 0 bytes
+  let alloc bytes = Cstruct.create bytes
 
   (* TODO: this function performs extra data copies *)
   let read_sectors bps device xs =
