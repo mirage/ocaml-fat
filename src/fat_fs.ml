@@ -206,7 +206,8 @@ module Make (B: Mirage_block_lwt.S) = struct
       (sectors_of_file fs f)
 
   (** [find device fs path] returns a [find_result] corresponding to
-      the object stored at [path] *)
+      the object stored at [path]
+      XXX: doesn't handle the cases where path is: /a/../b or /a/./b *)
   let find device fs path =
     let readdir = function
       | Dir ds -> Lwt.return (Ok ds)
@@ -218,6 +219,10 @@ module Make (B: Mirage_block_lwt.S) = struct
       | [] ->
         (match current with
          | Dir ds -> Lwt.return (Ok (Dir ds))
+         | File ({Fat_name.dos = _, {Fat_name.is_dot = true; _}; _} as d) ->
+           Lwt.return (Ok (File d))
+         | File ({Fat_name.dos = _, {Fat_name.is_dotdot = true; _}; _} as d) ->
+           Lwt.return (Ok (File d))
          | File {Fat_name.dos = _, {Fat_name.subdir = true; _}; _} ->
            readdir current >|*= fun names ->
            Ok (Dir names)

@@ -54,6 +54,8 @@ type dos = {
   modify: datetime;
   start_cluster: int;
   file_size: int32;
+  is_dot: bool;
+  is_dotdot: bool;
 }
 
 (** Useful for streaming entries to/from the disk *)
@@ -77,18 +79,20 @@ let fake_root_entry = {
   dos = 0, {
       filename = ""; ext = ""; deleted = false; read_only = false;
       hidden = false; system = false; volume = false; subdir = true; archive = false;
-      create = epoch; access = epoch; modify = epoch; start_cluster = 0; file_size = 0l
+      create = epoch; access = epoch; modify = epoch; start_cluster = 0; file_size = 0l;
+      is_dot = false; is_dotdot = false;
     };
   lfns = []
 }
 
+let is_dot filename =
+  filename = "."
+
+let is_dotdot filename =
+  filename = ".."
+
 let remove_padding x =
-  let rec inner = function
-    | -1 -> x
-    | n when x.[n] = ' ' -> inner (n-1)
-    | n -> String.sub x 0 (n + 1)
-  in
-  inner (String.length x - 1)
+  String.trim x
 
 let file_size_of r = (snd r.dos).file_size
 let deleted r = (snd r.dos).deleted
@@ -97,7 +101,9 @@ let filename_of r =
   then r.utf_filename
   else
     let d = snd(r.dos) in
-    (remove_padding d.filename) ^ "." ^ (remove_padding d.ext)
+    let ext = (remove_padding d.ext) in
+    let filename = (remove_padding d.filename) in
+    if ext = "" then filename else filename ^ "." ^ ext
 
 let to_single_entries r =
   List.rev ((Dos (snd r.dos)) :: (List.map (fun l -> Lfn (snd l)) r.lfns))
@@ -119,7 +125,9 @@ let legal_dos_string x =
   with Not_found -> false
 
 let dot = Re.Str.regexp_string "."
-let is_legal_dos_name filename = match Re.Str.split dot filename with
+let is_legal_dos_name filename =
+  if (is_dot filename || is_dotdot filename) then true else
+  match Re.Str.split dot filename with
   | [ one ] -> String.length one <= 8 && (legal_dos_string one)
   | [ one; two ] -> String.length one <= 8
                     && (String.length two <= 3)
@@ -137,6 +145,7 @@ let add_padding p n x =
 let uppercase = Astring.String.Ascii.uppercase
 
 let dos_name_of_filename filename =
+  if (is_dot filename || is_dotdot filename) then filename, "" else
   if is_legal_dos_name filename
   then match Re.Str.split dot filename with
     | [ one ] -> add_padding ' ' 8 one, "   "
@@ -200,7 +209,9 @@ let make ?(read_only=false) ?(system=false) ?(subdir=false) filename =
     access = epoch;
     modify = epoch;
     start_cluster = start_cluster;
-    file_size = file_size
+    file_size = file_size;
+    is_dot = false;
+    is_dotdot = false
   } in
   let checksum = compute_checksum dos in
   let lfns =
@@ -252,7 +263,10 @@ let to_string x =
   let d = snd x.dos in
   let y = trim_utf16 x.utf_filename in
   let z = utf16_to_ascii y in
-  if z = "" then d.filename ^ "." ^ d.ext else z
+  let ext = (remove_padding d.ext) in
+  let filename = (remove_padding d.filename) in
+  if z = "" && ext = "" then filename else
+  if z = "" then filename ^ "." ^ ext else z
 
 let int_to_hms time =
   let hours = ((time lsr 11) land 0b11111) in
@@ -371,7 +385,9 @@ let unmarshal buf =
         access = time_of_int last_access_date 0 0;
         modify = time_of_int last_modify_date last_modify_time 0;
         start_cluster = start_cluster;
-        file_size = file_size
+        file_size = file_size;
+        is_dot = (is_dot (remove_padding (Bytes.to_string filename)));
+        is_dotdot = (is_dotdot (remove_padding (Bytes.to_string filename)));
       }
   end
 
