@@ -75,14 +75,15 @@ module Make (B: Mirage_block.S) = struct
 
   (* TODO: this function performs extra data copies *)
   let read_sectors bps device xs =
-    let buf = alloc (List.length xs * 512) in
+    let buf = alloc (List.length xs * bps) in
     let rec split buf =
       if Cstruct.len buf = 0 then []
-      else if Cstruct.len buf <= 512 then [ buf ]
-      else Cstruct.sub buf 0 512 :: (split (Cstruct.shift buf 512))
+      else if Cstruct.len buf <= bps then [ buf ]
+      else Cstruct.sub buf 0 bps :: (split (Cstruct.shift buf bps))
     in
-    let page = alloc 4096 in
-    let rec loop sector_size = function
+    let page = alloc bps in
+    B.get_info device >>= fun {sector_size; _} ->
+    let rec loop = function
       | []                     -> Lwt.return (Ok ())
       | (sector, buffer) :: xs ->
         let offset = sector * bps in
@@ -91,11 +92,10 @@ module Make (B: Mirage_block.S) = struct
         B.read device (Int64.of_int sector') [ page ] >>= function
         | Error e -> Lwt.return (Error (`Block_read e))
         | Ok () ->
-          Cstruct.blit page (offset mod sector_size) buffer 0 512;
-          loop sector_size xs
+          Cstruct.blit page (offset mod sector_size) buffer 0 bps;
+          loop xs
     in
-    B.get_info device >>= fun {sector_size; _} ->
-    loop sector_size (List.combine xs (split buf)) >|*= fun () ->
+    loop (List.combine xs (split buf)) >|*= fun () ->
     Ok buf
 
   let write_update device fs update =
