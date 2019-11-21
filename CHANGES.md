@@ -1,4 +1,11 @@
+### v0.14.0 (2019-11-21)
+
+- fix inconsistent sector size between block and fs (#81, @ehirdoy)
+- adapt to newer MirageOS 3.7.1 interfaces (#82, @hannesm)
+- Handle special dot and dotdot files (#76, @ricarkol)
+
 ### v0.13.0 (2019-03-11):
+
 - port to dune from jbuilder (#79 @emillon)
 - update opam metadata to 2.0 format (#80 @avsm)
 - test with OCaml 4.07 (#80 @avsm)
