@@ -25,7 +25,7 @@ type fs = {
   root  : Cstruct.t;
 }
 
-module Make (B: Mirage_block_lwt.S) = struct
+module Make (B: Mirage_block.S) = struct
   type t = {
     device: B.t;
     fs: fs;

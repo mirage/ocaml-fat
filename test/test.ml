@@ -18,7 +18,7 @@ open Lwt.Infix
 open Block
 open Mirage_fs
 
-module MemFS = Fat.FS(Mirage_block_lwt.Mem)
+module MemFS = Fat.FS(Mirage_block_combinators.Mem)
 
 let fail fmt = Fmt.kstrf Lwt.fail_with fmt
 
@@ -189,7 +189,7 @@ module FsError = struct
 end
 
 let format () =
-  Mirage_block_lwt.Mem.connect "" >>= fun t ->
+  Mirage_block_combinators.Mem.connect "" >>= fun t ->
   MemFS.format t (Int64.mul 16L mib)
 
 let test_create () =
@@ -335,7 +335,7 @@ let test_write ((filename: string), (_offset, length)) () =
 
 let test_destroy () =
   let t =
-    Mirage_block_lwt.Mem.connect "" >>= fun t ->
+    Mirage_block_combinators.Mem.connect "" >>= fun t ->
     MemFS.format t 0x100000L >>*= fun fs ->
     MemFS.create fs "/data" >>*= fun () ->
     MemFS.destroy fs "/data" >>*= fun () ->

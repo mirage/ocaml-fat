@@ -1,8 +1,8 @@
 (library
  (name fat_filesystem)
  (public_name fat-filesystem)
- (libraries cstruct re re.str mirage-fs mirage-block-lwt mirage-fs-lwt lwt
-   result rresult astring)
+ (libraries cstruct re re.str mirage-fs mirage-block lwt io-page
+   rresult astring)
  (wrapped false)
  (preprocess
   (pps ppx_cstruct)))

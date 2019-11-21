@@ -6,17 +6,18 @@ homepage: "https://github.com/mirage/ocaml-fat"
 doc: "https://mirage.github.io/ocaml-fat/"
 bug-reports: "https://github.com/mirage/ocaml-fat/issues"
 depends: [
-  "ocaml" {>= "4.03.0"}
+  "ocaml" {>= "4.06.0"}
   "dune" {>= "1.0"}
   "cstruct" {>= "3.0.0"}
   "ppx_cstruct"
   "rresult"
   "lwt" {>= "2.4.3"}
-  "mirage-fs" {>= "1.0.0"}
-  "mirage-fs-lwt" {>= "1.0.0"}
-  "mirage-block-lwt" {>= "1.0.0"}
+  "mirage-fs" {>= "3.0.0"}
+  "mirage-block" {>= "2.0.0"}
   "mirage-block-unix" {>= "2.5.0"}
+  "mirage-block-combinators" {with-test}
   "io-page-unix" {>= "2.0.0"}
+  "io-page" {>= "2.0.0"}
   "re" {>= "1.7.2"}
   "cmdliner"
   "astring"
@@ -25,6 +26,7 @@ depends: [
 build: [
   ["dune" "subst"] {pinned}
   ["dune" "build" "-p" name "-j" jobs]
+  ["dune" "runtest" "-p" name] {with-test}
 ]
 dev-repo: "git+https://github.com/mirage/ocaml-fat.git"
 synopsis: "Pure OCaml implementation of the FAT filesystem"

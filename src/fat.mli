@@ -16,10 +16,8 @@
 
 (** FAT32 implementation *)
 
-[@@@ocaml.warning "-34"]
-
 (** The main FS interface. *)
-module FS (B: Mirage_block_lwt.S): sig
+module FS (B: Mirage_block.S): sig
 
   type error = [
     | Mirage_fs.error
@@ -32,7 +30,7 @@ module FS (B: Mirage_block_lwt.S): sig
     | `Block_write of B.write_error
     | `Exn of exn
   ]
-  include Mirage_fs_lwt.S with type error := error and type write_error := write_error
+  include Mirage_fs.S with type error := error and type write_error := write_error
   val connect : B.t -> t Lwt.t
   val format : B.t -> int64 -> (t, write_error) result Lwt.t
 
