@@ -36,7 +36,9 @@ let rec iter_s f = function
     | Error e -> Lwt.return (Error e)
     | Ok () -> iter_s f xs
 
-let alloc bytes = Cstruct.create bytes
+let alloc bytes =
+  let pages = Io_page.(to_cstruct (get ((bytes + 4095) / 4096))) in
+  Cstruct.sub pages 0 bytes
 
 let with_file flags filename f =
   Lwt_unix.openfile filename flags 0o0 >>= fun file ->
