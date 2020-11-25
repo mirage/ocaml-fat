@@ -95,3 +95,13 @@ module Make (B: Mirage_block.S): sig
       overwrite existing information starting at [off].*)
 
 end
+
+module KV_RO(B: Mirage_block.S): sig
+  include Mirage_kv.RO
+
+  val connect: B.t -> t Lwt.t
+  (** [connect block] creates a key=value store over a FAT filesystem on
+      the [block] device> *)
+end
+(** KV_RO is a read-only key=value store backed by a simple FAT filesystem
+    on a block device. *)
