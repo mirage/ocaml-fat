@@ -1,3 +1,8 @@
+### v0.15.0 (2020-11-25)
+
+- update to Mirage 4 interfaces (#85, @djs55)
+- clarify limitations and purpose in README (#86, @djs55)
+
 ### v0.14.0 (2019-11-21)
 
 - fix inconsistent sector size between block and fs (#81, @ehirdoy)
