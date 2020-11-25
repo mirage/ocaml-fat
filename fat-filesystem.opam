@@ -12,9 +12,9 @@ depends: [
   "ppx_cstruct"
   "rresult"
   "lwt" {>= "2.4.3"}
-  "mirage-fs" {>= "3.0.0"}
   "mirage-block" {>= "2.0.0"}
   "mirage-block-unix" {>= "2.5.0"}
+  "mirage-kv"
   "mirage-block-combinators" {with-test}
   "io-page-unix" {>= "2.0.0"}
   "io-page" {>= "2.0.0"}
@@ -34,6 +34,6 @@ description: """
 This library has two purposes:
 1. to allow the easy preparation of bootable disk images
      containing [mirage](https://mirage.io) kernels
-2. to provide a simple filesystem layer for MirageOS applications
+2. to provide a simple key=value layer for MirageOS applications
 """
 

@@ -16,9 +16,8 @@
 
 open Lwt.Infix
 open Block
-open Mirage_fs
 
-module MemFS = Fat.FS(Mirage_block_combinators.Mem)
+module MemFS = Fat.Make(Mirage_block_combinators.Mem)
 
 let fail fmt = Fmt.kstrf Lwt.fail_with fmt
 
@@ -185,7 +184,7 @@ module FsError = struct
       let b = Buffer.create 20 in
       let ppf = Format.formatter_of_buffer b in
       let k ppf = Format.pp_print_flush ppf (); fail "%s" (Buffer.contents b) in
-      Fmt.kpf k ppf "%a" Mirage_fs.pp_write_error error
+      Fmt.kpf k ppf "%a" MemFS.pp_write_error error
 end
 
 let format () =

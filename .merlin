@@ -1,8 +1,0 @@
-S lib/
-S fat/
-S lib_test/
-B _build/**
-
-PKG lwt mirage-block-lwt mirage-fs-lwt
-PKG mirage-block-lwt mirage-block-unix
-PKG cstruct cstruct.ppx alcotest astring
