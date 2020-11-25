@@ -14,9 +14,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 open Lwt.Infix
-open Mirage_fs
 
-module Filesystem = Fat.FS(Block)
+module Filesystem = Fat.Make(Block)
 open Common
 
 (* Default policy when we hit a block- or fs-level error which we don't
