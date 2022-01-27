@@ -19,7 +19,7 @@ open Block
 
 module MemFS = Fat.Make(Mirage_block_combinators.Mem)
 
-let fail fmt = Fmt.kstrf Lwt.fail_with fmt
+let fail fmt = Fmt.kstr Lwt.fail_with fmt
 
 let (>>*=) m f = m >>= function
   | Error e -> fail "%a" MemFS.pp_write_error (e :> MemFS.write_error)
@@ -213,7 +213,7 @@ let make_pattern tag length =
   assert (String.length tag <= length);
   let buffer = alloc length in
   Cstruct.blit_from_string tag 0 buffer 0 (String.length tag);
-  for i = String.length tag to Cstruct.len buffer - 1 do
+  for i = String.length tag to Cstruct.length buffer - 1 do
     Cstruct.set_char buffer i tag.[i mod (String.length tag)]
   done;
   buffer
@@ -285,7 +285,7 @@ let test_read () =
     let buffer = make_pattern "basic writing test " length in
     MemFS.write fs filename 0 buffer >>*= fun () ->
     MemFS.read fs filename 0 length >>*= fun buffers ->
-    let count buffers = List.fold_left (+) 0 (List.map Cstruct.len buffers) in
+    let count buffers = List.fold_left (+) 0 (List.map Cstruct.length buffers) in
     Alcotest.(check int) __LOC__ length (count buffers);
     MemFS.read fs filename 0 (length * 2) >>*= fun buffers ->
     Alcotest.(check int) __LOC__ length (count buffers);
@@ -324,7 +324,7 @@ let test_write ((filename: string), (_offset, length)) () =
     let cstruct =
       Alcotest.testable
         (fun ppf x ->
-           Fmt.pf ppf "\"%s\"(%d)" (Cstruct.to_string x) (Cstruct.len x)
+           Fmt.pf ppf "\"%s\"(%d)" (Cstruct.to_string x) (Cstruct.length x)
         ) Cstruct.equal
     in
     Alcotest.(check cstruct) __LOC__ buffer (List.hd buffers);
