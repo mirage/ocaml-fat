@@ -48,7 +48,12 @@ module Make (B: Mirage_block.S): sig
   val pp_write_error: write_error Fmt.t
   (** [pp_write_error] is the pretty-printer for write errors. *)
 
-  include Mirage_device.S
+  type t
+  (** The type representing the internal state of the device *)
+
+  val disconnect: t -> unit Lwt.t
+  (** Disconnect from the device. While this might take some time to
+      complete, it can never result in an error. *)
 
   val connect : B.t -> t Lwt.t
   val format : B.t -> int64 -> (t, write_error) result Lwt.t
