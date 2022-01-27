@@ -29,7 +29,7 @@ let to_string = function
 type fat = Cstruct.t
 
 let of_fat16 n fat =
-  if Cstruct.len fat < (2 * n + 2)
+  if Cstruct.length fat < (2 * n + 2)
   then Bad
   else
     let x = Cstruct.LE.get_uint16 fat (2 * n) in
@@ -44,7 +44,7 @@ let to_fat16 n fat x =
   Cstruct.LE.set_uint16 fat (2 * n) x'
 
 let of_fat32 n fat =
-  if Cstruct.len fat < (4 * n + 4)
+  if Cstruct.length fat < (4 * n + 4)
   then Bad
   else
     let x = Cstruct.LE.get_uint32 fat (4 * n) in

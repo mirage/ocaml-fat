@@ -40,13 +40,13 @@ let byte_range bps start len =
 
 let clip (preceeding, _, succeeding) = function
   | [] -> []
-  | [c] -> [Cstruct.sub c preceeding (Cstruct.len c - succeeding - preceeding)]
+  | [c] -> [Cstruct.sub c preceeding (Cstruct.length c - succeeding - preceeding)]
   | c :: cs ->
     let cs' = List.rev cs in
     let last = List.hd cs' in
     let middle' = List.tl cs' in
-    let last = Cstruct.sub last 0 (Cstruct.len last - succeeding) in
-    let head = Cstruct.sub c preceeding (Cstruct.len c - preceeding) in
+    let last = Cstruct.sub last 0 (Cstruct.length last - succeeding) in
+    let head = Cstruct.sub c preceeding (Cstruct.length c - preceeding) in
     head :: (List.rev middle') @ [ last ]
 
 let compose a b =

@@ -331,7 +331,7 @@ let sizeof = sizeof_name
 let _ = assert(sizeof_lfn = sizeof_name)
 
 let unmarshal buf =
-  if Cstruct.len buf = 0
+  if Cstruct.length buf = 0
   then End
   else if get_lfn_v_0f buf = 0x0f then begin
     let seq = get_lfn_seq buf in
@@ -392,7 +392,7 @@ let unmarshal buf =
   end
 
 let marshal (buf: Cstruct.t) t =
-  for i = 0 to Cstruct.len buf - 1 do
+  for i = 0 to Cstruct.length buf - 1 do
     Cstruct.set_uint8 buf i 0
   done;
   match t with
@@ -450,7 +450,7 @@ let marshal (buf: Cstruct.t) t =
 
 let blocks buf =
   let rec loop acc offset remaining =
-    if Cstruct.len remaining < sizeof (* ignore extra space at the end *)
+    if Cstruct.length remaining < sizeof (* ignore extra space at the end *)
     then List.rev acc
     else
       let this = offset, (Cstruct.sub remaining 0 sizeof) in
@@ -504,7 +504,7 @@ let next bits =
     Note the update may be beyond the end of [block] indicating more space needs
     to be allocated. *)
 let add block r =
-  let after_block = Cstruct.len block in
+  let after_block = Cstruct.length block in
   let next_byte = match next block with
     | Some b -> b
     | None -> after_block in
