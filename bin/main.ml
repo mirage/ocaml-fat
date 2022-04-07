@@ -42,7 +42,7 @@ let common_options_t =
   let unbuffered =
     let doc = "Use unbuffered I/O (via O_DIRECT)." in
     Arg.(value & flag & info ["unbuffered"] ~docs ~doc) in
-  Term.(pure Common.make $ debug $ verb $ unbuffered)
+  Term.(const Common.make $ debug $ verb $ unbuffered)
 
 let filename =
   let doc = Printf.sprintf "Path to the FAT image file." in
@@ -65,8 +65,10 @@ let create_cmd =
   let size =
     let doc = "Size of the image" in
     Arg.(value & pos 1 string "16MiB" & info [] ~doc) in
-  Term.(ret(pure Impl.create $ common_options_t $ filename $ size)),
-  Term.info "create" ~sdocs:_common_options ~doc ~man
+  let term = Term.(ret(const Impl.create $ common_options_t $ filename $ size))
+  and info = Cmd.info "create" ~sdocs:_common_options ~doc ~man
+  in
+  Cmd.v info term
 
 let add_cmd =
   let doc = "add files to a FAT image" in
@@ -75,8 +77,10 @@ let add_cmd =
     `P "Add a set of files to a FAT filesystem image."
   ] @ help in
   let files = Arg.(non_empty & pos_all file [] & info [] ~docv:"FILE") in
-  Term.(ret(pure Impl.add $ common_options_t $ filename $ files)),
-  Term.info "add" ~sdocs:_common_options ~doc ~man
+  let term = Term.(ret(const Impl.add $ common_options_t $ filename $ files))
+  and info = Cmd.info "add" ~sdocs:_common_options ~doc ~man
+  in
+  Cmd.v info term
 
 let list_cmd =
   let doc = "list files in a FAT image" in
@@ -84,8 +88,10 @@ let list_cmd =
     `S "DESCRIPTION";
     `P "List the set of files contained within a FAT filesystem image."
   ] @ help in
-  Term.(ret(pure Impl.list $ common_options_t $ filename)),
-  Term.info "list" ~sdocs:_common_options ~doc ~man
+  let term = Term.(ret(const Impl.list $ common_options_t $ filename))
+  and info = Cmd.info "list" ~sdocs:_common_options ~doc ~man
+  in
+  Cmd.v info term
 
 let cat_cmd =
   let doc = "extract a single file from a FAT image" in
@@ -93,18 +99,21 @@ let cat_cmd =
     `S "DESCRIPTION";
     `P "extract a single file from a FAT filesystem image."
   ] @ help in
-  Term.(ret(pure Impl.cat $ common_options_t $ filename $ path)),
-  Term.info "cat" ~sdocs:_common_options ~doc ~man
+  let term = Term.(ret(const Impl.cat $ common_options_t $ filename $ path))
+  and info = Cmd.info "cat" ~sdocs:_common_options ~doc ~man
+  in
+  Cmd.v info term
 
 let default_cmd =
-  let doc = "manipulate FAT filesystem images" in
-  let man = help in
-  Term.(ret (pure (fun _ -> `Help (`Pager, None)) $ common_options_t)),
-  Term.info "fat" ~version:"1.0.0" ~sdocs:_common_options ~doc ~man
+  Term.(ret (const (fun _ -> `Help (`Pager, None)) $ common_options_t))
 
 let cmds = [create_cmd; add_cmd; list_cmd; cat_cmd]
 
-let _ =
-  match Term.eval_choice default_cmd cmds with
-  | `Error _ -> exit 1
-  | _ -> exit 0
+let () =
+  let doc = "manipulate FAT filesystem images" in
+  let man = help in
+  let info =
+    Cmd.info "fat" ~version:"%%VERSION%%" ~sdocs:_common_options ~doc ~man
+  in
+  let group = Cmd.group ~default:default_cmd info cmds in
+  exit (Cmd.eval group)
