@@ -89,8 +89,8 @@ module Make (B: Mirage_block.S) = struct
   let read_sectors bps device xs =
     let buf = alloc (List.length xs * bps) in
     let rec split buf =
-      if Cstruct.len buf = 0 then []
-      else if Cstruct.len buf <= bps then [ buf ]
+      if Cstruct.length buf = 0 then []
+      else if Cstruct.length buf <= bps then [ buf ]
       else Cstruct.sub buf 0 bps :: (split (Cstruct.shift buf bps))
     in
     let page = alloc bps in
@@ -146,7 +146,7 @@ module Make (B: Mirage_block.S) = struct
     let fat = Fat_entry.make boot format in
     let root_sectors = Fat_boot_sector.sectors_of_root_dir boot in
     let root = alloc (List.length root_sectors * 512) in
-    for i = 0 to Cstruct.len root - 1 do Cstruct.set_uint8 root i 0 done;
+    for i = 0 to Cstruct.length root - 1 do Cstruct.set_uint8 root i 0 done;
     let fs = { boot = boot; format = format; fat = fat; root = root } in
     Ok fs
 
@@ -175,12 +175,12 @@ module Make (B: Mirage_block.S) = struct
     let get_fs sector =
       match Fat_boot_sector.unmarshal sector with
       | Error reason ->
-        Fmt.kstrf Lwt.fail_with
+        Fmt.kstr Lwt.fail_with
           "error unmarshalling first sector of block device: %s" reason
       | Ok boot ->
         match Fat_boot_sector.detect_format boot with
         | Error reason ->
-          Fmt.kstrf Lwt.fail_with
+          Fmt.kstr Lwt.fail_with
             "error detecting the format of block device: %s" reason
         | Ok format -> Lwt.return (boot, format)
     in
@@ -200,7 +200,7 @@ module Make (B: Mirage_block.S) = struct
     >>= function
     | Ok t    -> Lwt.return t
     | Error e ->
-      Fmt.kstrf Lwt.fail_with "error reading essential sectors: %a" pp_error e
+      Fmt.kstr Lwt.fail_with "error reading essential sectors: %a" pp_error e
 
   let disconnect _ = Lwt.return ()
 
@@ -496,7 +496,7 @@ module Make (B: Mirage_block.S) = struct
       | Ok buffer    ->
         let buffer =
           Cstruct.sub buffer preceeding
-            (Cstruct.len buffer - preceeding - succeeding)
+            (Cstruct.length buffer - preceeding - succeeding)
         in
         Ok [ buffer ]
 

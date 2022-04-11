@@ -8,23 +8,23 @@ bug-reports: "https://github.com/mirage/ocaml-fat/issues"
 depends: [
   "ocaml" {>= "4.06.0"}
   "dune" {>= "1.0"}
-  "cstruct" {>= "3.0.0"}
+  "cstruct" {>= "6.0.0"}
   "ppx_cstruct"
   "rresult"
   "lwt" {>= "2.4.3"}
-  "mirage-block" {>= "2.0.0"}
-  "mirage-block-unix" {>= "2.5.0"}
+  "mirage-block" {>= "3.0.0"}
+  "mirage-block-unix" {>= "2.13.0"}
   "mirage-kv"
   "mirage-block-combinators" {with-test}
-  "io-page-unix" {>= "2.0.0"}
-  "io-page" {>= "2.0.0"}
+  "io-page" {>= "2.4.0"}
   "re" {>= "1.7.2"}
-  "cmdliner"
+  "cmdliner" {>= "1.1.0"}
   "astring"
+  "fmt" {>= "0.8.7"}
   "alcotest" {with-test}
 ]
 build: [
-  ["dune" "subst"] {pinned}
+  ["dune" "subst"] {dev}
   ["dune" "build" "-p" name "-j" jobs]
   ["dune" "runtest" "-p" name] {with-test}
 ]

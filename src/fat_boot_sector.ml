@@ -60,7 +60,7 @@ let _ = assert(sizeof = 512)
 let fat_id = 0xf8 (* fixed disk *)
 
 let marshal (buf: Cstruct.t) t =
-  for i = 0 to Cstruct.len buf - 1 do
+  for i = 0 to Cstruct.length buf - 1 do
     Cstruct.set_uint8 buf i 0
   done;
   set_t_oem_name t.oem_name 0 buf;
@@ -81,8 +81,8 @@ let marshal (buf: Cstruct.t) t =
 
 let unmarshal (buf: Cstruct.t) : (t, string) result =
   let open Rresult in
-  ( if Cstruct.len buf < sizeof
-    then Error (Printf.sprintf "boot sector too small: %d < %d" (Cstruct.len buf) sizeof)
+  ( if Cstruct.length buf < sizeof
+    then Error (Printf.sprintf "boot sector too small: %d < %d" (Cstruct.length buf) sizeof)
     else Ok () ) >>= fun () ->
   let signature = get_t_signature buf in
   ( if signature <> 0xaa55
