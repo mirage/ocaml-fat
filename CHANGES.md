@@ -1,3 +1,8 @@
+### v0.15.1 (2022-04-11)
+
+- update to fmt 0.8.7, cstruct 6.0.0, cmdliner 1.1.0 (#89, @hannesm)
+- remove deprecated io-page-unix/io-page.unix dependency (#89, @hannesm)
+
 ### v0.15.0 (2020-11-25)
 
 - update to Mirage 4 interfaces (#85, @djs55)
