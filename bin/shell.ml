@@ -1,8 +1,7 @@
 (* This is a toplevel-like test program *)
 open Lwt.Infix
-open Mirage_fs
 
-module Test = Fat.FS(Block)
+module Test = Fat.Make(Block)
 
 let with_file flags filename f =
   Lwt_unix.openfile filename flags 0o0 >>= fun file ->
@@ -14,7 +13,7 @@ let with_file flags filename f =
       Lwt_unix.close file >>= fun () ->
       Lwt.fail x)
 
-let fail fmt = Fmt.kstrf Lwt.fail_with fmt
+let fail fmt = Fmt.kstr Lwt.fail_with fmt
 
 let (>>|=) m f = m >>= function
   | Error e -> fail "%a" Test.pp_error e
@@ -58,7 +57,7 @@ let main filename _create_size =
       let n = ref 0 in
       List.iter (fun buf ->
           Printf.printf "%s" (Cstruct.to_string buf);
-          n := !n + (Cstruct.len buf)
+          n := !n + (Cstruct.length buf)
         ) datas;
       Printf.printf "\n%!";
       if !n <> file_size
@@ -160,10 +159,10 @@ let main filename _create_size =
     inner (snd(parse_path x))
   in
 
-  let space = Re_str.regexp_string " " in
+  let space = Re.Str.regexp_string " " in
   let rec loop () =
     Printf.printf "A:%s> %!" (Path.to_string !cwd);
-    match Re_str.split space (input_line stdin) with
+    match Re.Str.split space (input_line stdin) with
     | [ "dir" ] -> do_dir "" >>= loop
     | [ "dir"; path ] -> do_dir path >>= loop
     | [ "cd"; path ] -> do_cd path >>= loop
