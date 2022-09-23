@@ -2,7 +2,7 @@
  (name fat_filesystem)
  (public_name fat-filesystem)
  (libraries cstruct re re.str mirage-block mirage-kv lwt io-page
-   rresult astring)
+   rresult)
  (wrapped false)
  (preprocess
   (pps ppx_cstruct)))

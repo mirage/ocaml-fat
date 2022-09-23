@@ -20,7 +20,6 @@ depends: [
   "io-page" {>= "2.4.0"}
   "re" {>= "1.7.2"}
   "cmdliner" {>= "1.1.0"}
-  "astring"
   "fmt" {>= "0.8.7"}
   "alcotest" {with-test}
 ]

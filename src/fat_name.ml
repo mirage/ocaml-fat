@@ -142,8 +142,6 @@ let add_padding p n x =
     Bytes.blit_string x 0 y 0 (String.length x);
     Bytes.unsafe_to_string y
 
-let uppercase = Astring.String.Ascii.uppercase
-
 let dos_name_of_filename filename =
   if (is_dot filename || is_dotdot filename) then filename, "" else
   if is_legal_dos_name filename
@@ -152,7 +150,7 @@ let dos_name_of_filename filename =
     | [ one; two ] -> add_padding ' ' 8 one, add_padding ' ' 3 two
     | _ -> assert false (* implied by is_legal_dos_name *)
   else
-    let all  = uppercase (Digest.to_hex (Digest.string filename)) in
+    let all  = String.uppercase_ascii Digest.(to_hex (string filename)) in
     let base = String.sub all 0 8 in
     let ext  = String.sub all 8 3 in
     base, ext
