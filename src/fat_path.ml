@@ -23,9 +23,12 @@ let filename = List.hd
 
 let to_string p = "/" ^ (String.concat "/" (to_string_list p))
 
-let slash = Re.Str.regexp_string "/"
+let split s =
+  let non_empty_hd = function "" :: tl -> tl | tl -> tl in
+  let a = non_empty_hd (String.split_on_char '/' s) in
+  List.rev (non_empty_hd (List.rev a))
 
-let of_string s = if s = "/" || s = "" then [] else of_string_list (Re.Str.split slash s)
+let of_string s = if s = "/" || s = "" then [] else of_string_list (split s)
 
 let concat path x = x :: path
 

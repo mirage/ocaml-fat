@@ -159,10 +159,15 @@ let main filename _create_size =
     inner (snd(parse_path x))
   in
 
-  let space = Re.Str.regexp_string " " in
+  let split_ws s =
+    let non_empty_hd = function "" :: tl -> tl | tl -> tl in
+    let a = non_empty_hd (String.split_on_char ' ' s) in
+    List.rev (non_empty_hd (List.rev a))
+  in
+
   let rec loop () =
     Printf.printf "A:%s> %!" (Path.to_string !cwd);
-    match Re.Str.split space (input_line stdin) with
+    match split_ws (input_line stdin) with
     | [ "dir" ] -> do_dir "" >>= loop
     | [ "dir"; path ] -> do_dir path >>= loop
     | [ "cd"; path ] -> do_cd path >>= loop

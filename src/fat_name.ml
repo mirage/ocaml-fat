@@ -124,10 +124,14 @@ let legal_dos_string x =
     true
   with Not_found -> false
 
-let dot = Re.Str.regexp_string "."
+let split_dot s =
+  let non_empty_hd = function "" :: tl -> tl | tl -> tl in
+  let a = non_empty_hd (String.split_on_char '.' s) in
+  List.rev (non_empty_hd (List.rev a))
+
 let is_legal_dos_name filename =
   if (is_dot filename || is_dotdot filename) then true else
-  match Re.Str.split dot filename with
+  match split_dot filename with
   | [ one ] -> String.length one <= 8 && (legal_dos_string one)
   | [ one; two ] -> String.length one <= 8
                     && (String.length two <= 3)
@@ -145,7 +149,7 @@ let add_padding p n x =
 let dos_name_of_filename filename =
   if (is_dot filename || is_dotdot filename) then filename, "" else
   if is_legal_dos_name filename
-  then match Re.Str.split dot filename with
+  then match split_dot filename with
     | [ one ] -> add_padding ' ' 8 one, "   "
     | [ one; two ] -> add_padding ' ' 8 one, add_padding ' ' 3 two
     | _ -> assert false (* implied by is_legal_dos_name *)
