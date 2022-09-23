@@ -538,6 +538,18 @@ module KV_RO(B: Mirage_block.S) = struct
       | Error e -> Error (`FS e)
       | Ok l -> Ok Cstruct.(to_string (concat l))
 
+  let get_partial t key ~offset ~length =
+    FS.read t (Mirage_kv.Key.to_string key) offset length >|= function
+    | Error e -> Error (`FS e)
+    | Ok l -> Ok Cstruct.(to_string (concat l))
+
+  let size t key =
+    FS.stat t (Mirage_kv.Key.to_string key) >|= function
+    | Error `Is_a_directory -> Error (`Value_expected key)
+    | Error `No_directory_entry -> Error (`Not_found key)
+    | Error e -> Error (`FS e)
+    | Ok s -> Ok (Int64.to_int s.size)
+
   let list t key =
     let name = Mirage_kv.Key.to_string key in
     let dict_or_value fn =
