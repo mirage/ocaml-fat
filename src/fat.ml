@@ -140,9 +140,9 @@ module Make (B: Mirage_block.S) = struct
         ~sectors_per_block ~bps page
 
   let make size =
-    let open Rresult in
+    let ( let* ) = Result.bind in
     let boot = Fat_boot_sector.make size in
-    Fat_boot_sector.detect_format boot >>= fun format ->
+    let* format = Fat_boot_sector.detect_format boot in
     let fat = Fat_entry.make boot format in
     let root_sectors = Fat_boot_sector.sectors_of_root_dir boot in
     let root = alloc (List.length root_sectors * 512) in
