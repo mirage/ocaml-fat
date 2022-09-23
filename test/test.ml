@@ -25,9 +25,7 @@ let (>>*=) m f = m >>= function
   | Error e -> fail "%a" MemFS.pp_write_error (e :> MemFS.write_error)
   | Ok x    -> f x
 
-let alloc bytes =
-  let pages = Io_page.(to_cstruct (get ((bytes + 4095) / 4096))) in
-  Cstruct.sub pages 0 bytes
+let alloc bytes = Cstruct.create bytes
 
 let read_sector filename =
   Lwt_unix.openfile filename [ Lwt_unix.O_RDONLY ] 0o0 >>= fun fd ->

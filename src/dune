@@ -1,7 +1,7 @@
 (library
  (name fat_filesystem)
  (public_name fat-filesystem)
- (libraries cstruct mirage-block mirage-kv lwt io-page)
+ (libraries cstruct mirage-block mirage-kv lwt)
  (wrapped false)
  (preprocess
   (pps ppx_cstruct)))
