@@ -539,6 +539,23 @@ module KV_RO(B: Mirage_block.S) = struct
       FS.read t name 0 (Int64.to_int s.size) >|= function
       | Error e -> Error (`FS e)
       | Ok l -> Ok Cstruct.(to_string (concat l))
+  
+  let get_partial t key ~offset ~length =
+    let name = Mirage_kv.Key.to_string key in
+    FS.stat t name >>= function
+    | Error `Is_a_directory -> Lwt.return (Error (`Value_expected key))
+    | Error `No_directory_entry -> Lwt.return (Error (`Not_found key))
+    | Error e -> Lwt.return (Error (`FS e))
+    | Ok s ->
+      let file_size = Int64.to_int s.size in
+      let start_offset = Optint.Int63.to_int offset in
+      let actual_length = min length (file_size - start_offset) in
+      if start_offset > file_size then
+        Lwt.return (Ok "")
+      else
+        FS.read t name start_offset actual_length >|= function
+        | Error e -> Error (`FS e)
+        | Ok l -> Ok Cstruct.(to_string (concat l)) 
 
   let list t key =
     let name = Mirage_kv.Key.to_string key in
@@ -557,15 +574,29 @@ module KV_RO(B: Mirage_block.S) = struct
           | Error e -> Lwt.return (Error e)
           | Ok acc -> dict_or_value f >|= function
             | Error e -> Error e
-            | Ok t -> Ok ((f, t) :: acc))
-        (Ok []) files
+            | Ok t -> Ok ((Mirage_kv.Key.add key f, t) :: acc))
+        (Ok []) files        
 
-  let last_modified _ _ = Lwt.return (Ok (0, 0L))
+  let last_modified t key = 
+    let name = Mirage_kv.Key.to_string key in
+    FS.stat t name >>= function
+    | Error `Is_a_directory -> Lwt.return (Error (`Value_expected key))
+    | Error `No_directory_entry -> Lwt.return (Error (`Not_found key))
+    | Error e -> Lwt.return (Error (`FS e))
+    | Ok _s -> Lwt.return (Ok (Ptime.epoch))
 
   let digest t key =
     get t key >|= function
     | Error e -> Error e
-    | Ok data -> Ok (Digest.string data)
+    | Ok data -> Ok (Digest.string data)    
+
+  let size t key =
+    let name = Mirage_kv.Key.to_string key in
+    FS.stat t name >>= function
+    | Error `Is_a_directory -> Lwt.return (Error (`Value_expected key))
+    | Error `No_directory_entry -> Lwt.return (Error (`Not_found key))
+    | Error e -> Lwt.return (Error (`FS e))
+    | Ok s -> Lwt.return (Ok (Optint.Int63.of_int64 s.size))
 
   let connect t = FS.connect t
 end
