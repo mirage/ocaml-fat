@@ -81,9 +81,7 @@ module Make (B: Mirage_block.S) = struct
   let (>>*=) x f = x >>= function Ok m -> f m | Error e -> Lwt.return @@ Error e
   let (>|*=) x f = x >|= function Ok m -> f m | Error e -> Error e
 
-  let alloc bytes =
-    let pages = Io_page.get_buf ~n:((bytes + 4095) / 4096) () in
-    Cstruct.sub pages 0 bytes
+  let alloc bytes = Cstruct.create bytes
 
   (* TODO: this function performs extra data copies *)
   let read_sectors bps device xs =
@@ -140,9 +138,9 @@ module Make (B: Mirage_block.S) = struct
         ~sectors_per_block ~bps page
 
   let make size =
-    let open Rresult in
+    let ( let* ) = Result.bind in
     let boot = Fat_boot_sector.make size in
-    Fat_boot_sector.detect_format boot >>= fun format ->
+    let* format = Fat_boot_sector.detect_format boot in
     let fat = Fat_entry.make boot format in
     let root_sectors = Fat_boot_sector.sectors_of_root_dir boot in
     let root = alloc (List.length root_sectors * 512) in
@@ -539,6 +537,18 @@ module KV_RO(B: Mirage_block.S) = struct
       FS.read t name 0 (Int64.to_int s.size) >|= function
       | Error e -> Error (`FS e)
       | Ok l -> Ok Cstruct.(to_string (concat l))
+
+  let get_partial t key ~offset ~length =
+    FS.read t (Mirage_kv.Key.to_string key) offset length >|= function
+    | Error e -> Error (`FS e)
+    | Ok l -> Ok Cstruct.(to_string (concat l))
+
+  let size t key =
+    FS.stat t (Mirage_kv.Key.to_string key) >|= function
+    | Error `Is_a_directory -> Error (`Value_expected key)
+    | Error `No_directory_entry -> Error (`Not_found key)
+    | Error e -> Error (`FS e)
+    | Ok s -> Ok (Int64.to_int s.size)
 
   let list t key =
     let name = Mirage_kv.Key.to_string key in
