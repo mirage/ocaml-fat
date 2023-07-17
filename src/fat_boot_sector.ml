@@ -80,14 +80,18 @@ let marshal (buf: Cstruct.t) t =
   set_t_signature buf 0xaa55
 
 let unmarshal (buf: Cstruct.t) : (t, string) result =
-  let open Rresult in
-  ( if Cstruct.length buf < sizeof
+  let ( let* ) = Result.bind in
+  let* () =
+    if Cstruct.length buf < sizeof
     then Error (Printf.sprintf "boot sector too small: %d < %d" (Cstruct.length buf) sizeof)
-    else Ok () ) >>= fun () ->
+    else Ok ()
+  in
   let signature = get_t_signature buf in
-  ( if signature <> 0xaa55
+  let* () =
+    if signature <> 0xaa55
     then Error (Printf.sprintf "boot sector signature invalid: %04x <> %04x" signature 0xaa55)
-    else Ok () ) >>= fun () ->
+    else Ok ()
+  in
   let oem_name = Cstruct.to_string (get_t_oem_name buf) in
   let bytes_per_sector = get_t_bytes_per_sector buf in
   let sectors_per_cluster = get_t_sectors_per_cluster buf in

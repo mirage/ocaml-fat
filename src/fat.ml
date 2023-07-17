@@ -81,9 +81,7 @@ module Make (B: Mirage_block.S) = struct
   let (>>*=) x f = x >>= function Ok m -> f m | Error e -> Lwt.return @@ Error e
   let (>|*=) x f = x >|= function Ok m -> f m | Error e -> Error e
 
-  let alloc bytes =
-    let pages = Io_page.get_buf ~n:((bytes + 4095) / 4096) () in
-    Cstruct.sub pages 0 bytes
+  let alloc bytes = Cstruct.create bytes
 
   (* TODO: this function performs extra data copies *)
   let read_sectors bps device xs =
@@ -140,9 +138,9 @@ module Make (B: Mirage_block.S) = struct
         ~sectors_per_block ~bps page
 
   let make size =
-    let open Rresult in
+    let ( let* ) = Result.bind in
     let boot = Fat_boot_sector.make size in
-    Fat_boot_sector.detect_format boot >>= fun format ->
+    let* format = Fat_boot_sector.detect_format boot in
     let fat = Fat_entry.make boot format in
     let root_sectors = Fat_boot_sector.sectors_of_root_dir boot in
     let root = alloc (List.length root_sectors * 512) in
@@ -540,6 +538,31 @@ module KV_RO(B: Mirage_block.S) = struct
       | Error e -> Error (`FS e)
       | Ok l -> Ok Cstruct.(to_string (concat l))
 
+  let get_partial t key ~offset ~length =
+    let name = Mirage_kv.Key.to_string key in
+    FS.stat t name >>= function
+    | Error `Is_a_directory -> Lwt.return (Error (`Value_expected key))
+    | Error `No_directory_entry -> Lwt.return (Error (`Not_found key))
+    | Error e -> Lwt.return (Error (`FS e))
+    | Ok s ->
+      let file_size = Int64.to_int s.size in
+      let start_offset = Optint.Int63.to_int offset in
+      let actual_length = min length (file_size - start_offset) in
+      if start_offset > file_size then
+        Lwt.return (Ok "")
+      else
+        FS.read t name start_offset actual_length >|= function
+        | Error e -> Error (`FS e)
+        | Ok l -> Ok Cstruct.(to_string (concat l))
+
+  let size t key =
+    let name = Mirage_kv.Key.to_string key in
+    FS.stat t name >>= function
+    | Error `Is_a_directory -> Lwt.return (Error (`Value_expected key))
+    | Error `No_directory_entry -> Lwt.return (Error (`Not_found key))
+    | Error e -> Lwt.return (Error (`FS e))
+    | Ok s -> Lwt.return (Ok (Optint.Int63.of_int64 s.size))
+
   let list t key =
     let name = Mirage_kv.Key.to_string key in
     let dict_or_value fn =
@@ -557,10 +580,16 @@ module KV_RO(B: Mirage_block.S) = struct
           | Error e -> Lwt.return (Error e)
           | Ok acc -> dict_or_value f >|= function
             | Error e -> Error e
-            | Ok t -> Ok ((f, t) :: acc))
+            | Ok t -> Ok ((Mirage_kv.Key.add key f, t) :: acc))
         (Ok []) files
 
-  let last_modified _ _ = Lwt.return (Ok (0, 0L))
+  let last_modified t key =
+    let name = Mirage_kv.Key.to_string key in
+    FS.stat t name >>= function
+    | Error `Is_a_directory -> Lwt.return (Error (`Value_expected key))
+    | Error `No_directory_entry -> Lwt.return (Error (`Not_found key))
+    | Error e -> Lwt.return (Error (`FS e))
+    | Ok _s -> Lwt.return (Ok (Ptime.epoch))
 
   let digest t key =
     get t key >|= function
