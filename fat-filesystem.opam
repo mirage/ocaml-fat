@@ -37,4 +37,4 @@ This library has two purposes:
      containing [mirage](https://mirage.io) kernels
 2. to provide a simple key=value layer for MirageOS applications
 """
-
+x-maintenance-intent: [ "(latest)" ]
